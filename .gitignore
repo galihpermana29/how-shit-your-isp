@@ -1,0 +1,14 @@
+.DS_Store
+.env
+/node_modules/
+
+# React Router
+/.react-router/
+/build/
+
+# Convex
+.env.local
+.env
+
+# Firmware - token tulis tidak boleh ikut ke repo
+firmware/rumah-uptime/config.h

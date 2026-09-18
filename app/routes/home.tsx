@@ -1,0 +1,102 @@
+import { useSyncExternalStore } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import type { Route } from "./+types/home";
+
+import { Board } from "../components/Board";
+import { getConvexClient } from "../lib/convex";
+import { Card, Skeleton } from "../components/bento/primitives";
+
+export function meta(_: Route.MetaArgs) {
+  return [
+    { title: "Rumah Uptime" },
+    { name: "description", content: "Pemantau internet rumah." },
+  ];
+}
+
+const noop = () => () => {};
+
+/** false saat render server dan saat hidrasi, true setelahnya. */
+function useHydrated(): boolean {
+  return useSyncExternalStore(noop, () => true, () => false);
+}
+
+/**
+ * Klien Convex sengaja hanya dibuat di peramban - membuatnya saat render server
+ * berarti membuka koneksi websocket per permintaan yang langsung dibuang. Jadi
+ * render server berhenti di kerangka, dan papan yang berlangganan baru dipasang
+ * setelah hidrasi, ketika ConvexProvider sudah pasti ada di atasnya.
+ */
+export default function Home() {
+  const hydrated = useHydrated();
+  if (!hydrated) return <LoadingBoard />;
+  if (!getConvexClient()) return <MissingConvex />;
+  return <LiveBoard />;
+}
+
+function MissingConvex() {
+  return (
+    <main className="mx-auto max-w-xl p-8 text-sm text-[var(--color-muted)]">
+      <h1 className="text-base font-semibold text-[var(--color-ink)]">Convex belum tersambung</h1>
+      <p className="mt-2">
+        <code>VITE_CONVEX_URL</code> kosong. Jalankan <code>npx convex dev</code> lalu mulai ulang
+        server dev.
+      </p>
+    </main>
+  );
+}
+
+function LiveBoard() {
+  const data = useQuery(api.dashboard.overview, {});
+  const toggleMeeting = useMutation(api.incidents.toggleMeeting);
+  const toggleBola = useMutation(api.incidents.toggleBola);
+
+  if (!data) return <LoadingBoard />;
+
+  return (
+    <Board
+      data={data}
+      onToggleMeeting={(id, meeting) => {
+        // Papan presentasional memegang id sebagai string biasa supaya bisa
+        // dipakai rute /preview tanpa Convex; mereknya dipasang lagi di sini.
+        void toggleMeeting({ id: id as Id<"incidents">, meeting });
+      }}
+      onToggleBola={(id, bola) => {
+        void toggleBola({ id: id as Id<"incidents">, bola });
+      }}
+    />
+  );
+}
+
+function LoadingBoard() {
+  const spans = [
+    "col-span-2 lg:col-span-2",
+    "",
+    "",
+    "",
+    "",
+    "col-span-2 lg:col-span-4 lg:row-span-2",
+    "col-span-2 lg:col-span-2",
+    "col-span-2 lg:col-span-2",
+    "col-span-2 lg:col-span-2",
+    "col-span-2 lg:col-span-2",
+    "col-span-2 lg:col-span-2",
+  ];
+
+  return (
+    <main className="flex min-h-[100dvh] flex-col gap-3 p-4 lg:h-[100dvh] lg:overflow-hidden">
+      <div className="flex shrink-0 items-center gap-2.5 px-1 pb-3">
+        <Skeleton className="size-2.5 rounded-full" />
+        <Skeleton className="h-4 w-40" />
+      </div>
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:grid-rows-[0.95fr_1.15fr_1.15fr_1fr]">
+        {spans.map((span, index) => (
+          <Card key={index} label="" className={`${span} min-h-[110px] lg:min-h-0`}>
+            <Skeleton className="h-full w-full" />
+          </Card>
+        ))}
+      </div>
+    </main>
+  );
+}

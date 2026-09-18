@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+
+  /* Papan gelap: dashboard ini dilirik sekilas di ruangan remang, dan angka
+     terang di atas gelap lebih cepat terbaca daripada sebaliknya. */
+  --color-canvas: #08080a;
+  --color-surface: #101014;
+  --color-surface-2: #17171c;
+  --color-line: #232329;
+  --color-line-soft: #1b1b20;
+  --color-ink: #f2f2f4;
+  --color-muted: #8e8e99;
+  --color-faint: #56565f;
+
+  --color-ok: #2fd4a0;
+  --color-warn: #f5b544;
+  --color-down: #f4525f;
+  --color-power: #a487f5;
+  --color-device: #6b7a90;
+  --color-accent: #5c9dff;
+}
+
+html,
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  color-scheme: dark;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Angka besar harus sejajar kolomnya saat berubah tiap beberapa detik -
+   tanpa ini, lebar digit yang berbeda membuat kartunya bergoyang. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+@layer components {
+  .card {
+    @apply relative flex min-h-0 flex-col overflow-hidden rounded-2xl border p-4;
+    background: var(--color-surface);
+    border-color: var(--color-line);
+  }
+
+  .card-label {
+    @apply text-[11px] font-medium uppercase tracking-[0.12em];
+    color: var(--color-faint);
+  }
+}
