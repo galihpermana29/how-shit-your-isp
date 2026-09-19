@@ -1,3 +1,4 @@
+import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { readSettings } from "./settings";
 import { classify, worstStatus, type Status } from "./lib/status";
@@ -146,5 +147,50 @@ export const checkContact = internalMutation({
       bola: false,
     });
     return { alive: false, silentMs, opened: true };
+  },
+});
+
+/**
+ * Declare a data gap as intentional - the device was unplugged on purpose, to
+ * move it or reflash it - rather than a power cut.
+ *
+ * Unplugging and a blackout look identical to the device: both end in a cold
+ * boot. Left alone, every deliberate unplug becomes a fake power cut on the
+ * board. Deleting the incident is not enough, because the next rebuild would
+ * derive it again from the same sample, so the correction goes to the source:
+ * the cold-boot flag is cleared and the window is rebuilt. The gap then reads
+ * as "monitor offline", which is the truth - time that was not measured.
+ *
+ * Internal on purpose: run it from the CLI with admin rights, never from the
+ * public board.
+ *
+ *   npx convex run --prod maintenance:markIntentionalGap '{"at": <t of first sample after the gap>}'
+ */
+export const markIntentionalGap = internalMutation({
+  args: { at: v.number() },
+  handler: async (ctx, { at }) => {
+    const sample = await ctx.db
+      .query("samples")
+      .withIndex("by_t", (q) => q.eq("t", at))
+      .unique();
+    if (!sample) throw new Error(`no sample at t=${at}`);
+
+    const device = await ctx.db
+      .query("deviceState")
+      .withIndex("by_singleton", (q) => q.eq("singleton", "device"))
+      .unique();
+    if (!device) throw new Error("no device state");
+
+    const before = await ctx.db
+      .query("samples")
+      .withIndex("by_t", (q) => q.lt("t", at))
+      .order("desc")
+      .first();
+
+    await ctx.db.patch(sample._id, { coldBoot: false });
+    const rewindTo = (before?.t ?? at) - 1;
+    await ctx.db.patch(device._id, { derivedUpTo: Math.min(device.derivedUpTo, rewindTo) });
+
+    return { cleared: at, rebuildFrom: rewindTo };
   },
 });

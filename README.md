@@ -72,7 +72,7 @@ A home that normally sits at 90 ms is not sick.
 | **Time lost** | hours, not rupiah | how disruptive it was |
 
 The wasted-subscriptions bucket only counts incidents caused on the ISP side: WAN down, ISP DNS failing, and **the bundled router hanging**.
-That router is IndiHome's equipment, not the household's, so it failing is still IndiHome failing to deliver.
+That router is the provider's equipment, not the household's, so it failing is still the provider failing to deliver.
 In a home with a self-bought router, remove `router` from `isIspFault`.
 
 Power cuts stay out.
@@ -121,7 +121,7 @@ The share of the data plan is the sharper number, because the plan is capped at 
 ## Guarding against false blame
 
 The `router` cause is ambiguous: an unreachable gateway can mean the router hung, or that the ESP32's own signal is weak.
-Because the IndiHome router counts as an ISP fault, a wrong guess would add rupiah straight to the number used to blame them.
+Because the provider's router counts as an ISP fault, a wrong guess would add rupiah straight to the number used to blame them.
 
 So samples with RSSI below `rssiFloorDbm` (-75 dBm) cannot produce a `router` incident.
 They fall into `device`, which counts as neither downtime nor cost.
@@ -134,6 +134,15 @@ A data gap followed by a cold boot means the power went out; a gap without a col
 
 A power cut counts as downtime, because the internet genuinely was unavailable, but it is not an ISP fault and burns no data.
 A device problem counts as neither: it is time that was not measured, so it is excluded from both downtime and uptime percentage.
+
+Unplugging the device on purpose (to move it or reflash it) looks exactly like a power cut, and is recorded as one.
+Correct it at the source, passing the timestamp of the first sample after the gap:
+
+```bash
+npx convex run --prod maintenance:markIntentionalGap '{"at": <t>}'
+```
+
+This clears the cold-boot flag on that sample and rebuilds the window, so the gap reads as "monitor offline" instead of a power cut.
 
 A brownout also counts as a cold boot.
 Power the device from a proper 5 V, 1 A phone charger with a good cable; a weak USB port causes brownouts when the Wi-Fi radio starts, and those would be recorded as fake power cuts.
@@ -207,7 +216,7 @@ cp firmware/rumah-uptime/config.example.h firmware/rumah-uptime/config.h
 
 Fill in the SSID, password, `INGEST_URL`, and `DEVICE_TOKEN`.
 
-- The ESP32 only supports **2.4 GHz** Wi-Fi. Use the SSID that does not end in `-5G`, and it must be the home IndiHome network, not a neighbour's: the device has to go down when the home line goes down.
+- The ESP32 only supports **2.4 GHz** Wi-Fi. Use the SSID that does not end in `-5G`, and it must be the home network, not a neighbour's: the device has to go down when the home line goes down.
 - `INGEST_URL` uses the **`.convex.site`** domain, not `.convex.cloud`. The latter is the client endpoint, not HTTP actions.
 - If the board keeps reporting "router" as the cause, the router is closing the tested port. Change `GATEWAY_PORT` to 53 or 443.
 
