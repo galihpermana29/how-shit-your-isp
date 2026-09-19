@@ -107,7 +107,6 @@ export function mockBoardData(now: number): BoardData {
 
   const thisMonth = incidents.filter((i) => (i.end ?? now) > monthStart);
   const cost = monthlyCost(thisMonth, settings, now, now);
-  const prev = monthlyCost([], settings, monthStart - DAY_MS, now);
 
   // --- heatmap + histogram jam ---
   const heatmapStart = todayStart - 34 * DAY_MS;
@@ -164,12 +163,16 @@ export function mockBoardData(now: number): BoardData {
 
   return {
     now,
+    settings: {
+      quotaGbPerMonth: settings.quotaGbPerMonth,
+      workStartHour: settings.workStartHour,
+      workEndHour: settings.workEndHour,
+    },
     status: "sehat",
     streakMs: 6 * HOUR_MS + 42 * 60_000,
     device: { online: true, silentMs: 12_000, baselineRtt: 23, firmware: "1.0.0" },
     month: {
       ...cost,
-      prevQuotaRupiah: prev.quotaRupiah + 41_000,
       prevDownMs: 6 * HOUR_MS + 20 * 60_000,
       uptimePct:
         ((now - monthStart - cost.unknownMs - cost.downMs) /

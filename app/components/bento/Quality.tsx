@@ -1,5 +1,5 @@
 import { Card } from "./primitives";
-import { ms as fmtMs } from "../../lib/format";
+import { useI18n } from "../../lib/i18n";
 
 type Point = {
   t: number;
@@ -10,18 +10,21 @@ type Point = {
 };
 
 /**
- * RTT dan jitter 24 jam.
+ * Ping and jitter over 24 hours.
  *
- * Jitter digambar berdampingan dengan RTT karena justru jitter yang merusak
- * panggilan video - latensi 150ms yang stabil terasa baik-baik saja, sementara
- * jitter 50ms membuat suara jadi robotik meski rata-ratanya rendah.
+ * Jitter is drawn next to ping because jitter is what breaks video calls: a
+ * steady 150 ms feels fine, while 50 ms of jitter makes voices robotic even when
+ * the average looks low.
  */
 export function Quality({ points, baselineRtt }: { points: Point[]; baselineRtt: number | null }) {
+  const { t, f } = useI18n();
+  const className = "col-span-2 min-h-[150px] fit:min-h-0";
+
   if (points.length < 2) {
     return (
-      <Card label="Kualitas 24 jam" className="col-span-full lg:col-span-2">
+      <Card label={t("quality.label")} info={t("quality.info")} className={className}>
         <div className="flex flex-1 items-center justify-center text-xs text-[var(--color-faint)]">
-          Belum cukup data.
+          {t("quality.empty")}
         </div>
       </Card>
     );
@@ -31,11 +34,7 @@ export function Quality({ points, baselineRtt }: { points: Point[]; baselineRtt:
   const H = 40;
   const t0 = points[0].t;
   const span = Math.max(1, points[points.length - 1].t - t0);
-  const ceiling = Math.max(
-    20,
-    ...points.map((p) => p.rtt ?? 0),
-    ...points.map((p) => p.jitter ?? 0),
-  );
+  const ceiling = Math.max(20, ...points.map((p) => p.rtt ?? 0), ...points.map((p) => p.jitter ?? 0));
 
   const path = (pick: (p: Point) => number | null) => {
     let d = "";
@@ -59,9 +58,10 @@ export function Quality({ points, baselineRtt }: { points: Point[]; baselineRtt:
 
   return (
     <Card
-      label="Kualitas 24 jam"
-      hint={latest ? `${fmtMs(latest.rtt)} · jitter ${fmtMs(latest.jitter)}` : "-"}
-      className="col-span-full lg:col-span-2"
+      label={t("quality.label")}
+      info={t("quality.info")}
+      hint={latest ? t("quality.now", { p: f.ms(latest.rtt), j: f.ms(latest.jitter) }) : "-"}
+      className={className}
     >
       <div className="min-h-0 flex-1">
         <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="size-full">
@@ -98,13 +98,13 @@ export function Quality({ points, baselineRtt }: { points: Point[]; baselineRtt:
       <div className="mt-2 flex shrink-0 gap-4 text-[10px] text-[var(--color-faint)]">
         <span className="flex items-center gap-1">
           <i className="inline-block h-[2px] w-3 not-italic" style={{ background: "var(--color-accent)" }} />
-          RTT
+          {t("quality.ping")}
         </span>
         <span className="flex items-center gap-1">
           <i className="inline-block h-[2px] w-3 not-italic" style={{ background: "var(--color-warn)" }} />
-          jitter
+          {t("quality.jitter")}
         </span>
-        {baselineRtt !== null && <span>normal {fmtMs(baselineRtt)}</span>}
+        {baselineRtt !== null && <span>{t("quality.normal", { v: f.ms(baselineRtt) })}</span>}
       </div>
     </Card>
   );

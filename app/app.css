@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Lock the board to a single screen only where it actually fits. On shorter
+   laptop screens, forcing it produced cards whose content was silently clipped;
+   there the page scrolls instead and every card keeps its natural height. */
+@custom-variant fit (@media (min-width: 64rem) and (min-height: 50rem));
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji";
@@ -54,4 +59,23 @@ body {
     @apply text-[11px] font-medium uppercase tracking-[0.12em];
     color: var(--color-faint);
   }
+}
+
+/* Explanation popovers. They live in the top layer, so the overflow:hidden on
+   cards cannot clip them, and tapping outside closes them on touch screens. */
+.info-popover {
+  margin: auto;
+  max-width: min(22rem, calc(100vw - 2rem));
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  font-size: 13px;
+  line-height: 1.55;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.5);
+}
+
+.info-popover::backdrop {
+  background: rgb(0 0 0 / 0.45);
 }

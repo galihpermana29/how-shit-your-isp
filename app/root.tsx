@@ -10,6 +10,7 @@ import { ConvexProvider } from "convex/react";
 
 import type { Route } from "./+types/root";
 import { getConvexClient } from "./lib/convex";
+import { I18nProvider } from "./lib/i18n";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -23,7 +24,7 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id">
+    <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -58,12 +59,20 @@ export default function App() {
 
   // Saat render server klien belum ada; kerangka kartunya tetap tampil dan
   // datanya menyusul begitu langganan hidup di peramban.
-  if (!client) return <Outlet />;
+  if (!client) {
+    return (
+      <I18nProvider>
+        <Outlet />
+      </I18nProvider>
+    );
+  }
 
   return (
-    <ConvexProvider client={client}>
-      <Outlet />
-    </ConvexProvider>
+    <I18nProvider>
+      <ConvexProvider client={client}>
+        <Outlet />
+      </ConvexProvider>
+    </I18nProvider>
   );
 }
 

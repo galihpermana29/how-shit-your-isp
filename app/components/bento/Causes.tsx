@@ -1,25 +1,28 @@
-import { CAUSE_COLOR, CAUSE_LABEL, Card } from "./primitives";
-import { durasi } from "../../lib/format";
+import { CAUSE_COLOR, Card } from "./primitives";
+import { useI18n, type MessageKey } from "../../lib/i18n";
 
 /**
- * Pemisahan penyebab. Ini yang menentukan sebuah insiden layak dikomplainkan
- * atau tidak - router sendiri yang ngadat dan listrik padam bukan kegagalan
- * layanan yang dikirim ISP, dan mencampurnya membuat angka klaim tidak
- * bisa dipertahankan.
+ * What caused this month's downtime. This split decides whether an outage is
+ * worth complaining about: a power cut is not a service the ISP failed to
+ * deliver, and mixing it in makes any claim fall apart the first time it is
+ * challenged.
  */
 export function Causes({ causes }: { causes: Record<string, number> }) {
+  const { t, f } = useI18n();
   const entries = Object.entries(causes).sort((a, b) => b[1] - a[1]);
   const total = entries.reduce((sum, [, ms]) => sum + ms, 0);
+  const label = (cause: string) => t(`cause.${cause}` as MessageKey);
 
   return (
     <Card
-      label="Penyebab"
-      hint={total > 0 ? durasi(total) : "bulan ini"}
-      className="col-span-full lg:col-span-2"
+      label={t("causes.label")}
+      info={t("causes.info")}
+      hint={total > 0 ? f.duration(total) : undefined}
+      className="col-span-2 min-h-[150px] fit:min-h-0"
     >
       {total === 0 ? (
         <div className="flex flex-1 items-center justify-center text-xs text-[var(--color-faint)]">
-          Belum ada gangguan bulan ini.
+          {t("causes.empty")}
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col justify-center gap-3">
@@ -27,7 +30,7 @@ export function Causes({ causes }: { causes: Record<string, number> }) {
             {entries.map(([cause, ms]) => (
               <div
                 key={cause}
-                title={`${CAUSE_LABEL[cause] ?? cause} - ${durasi(ms)}`}
+                title={`${label(cause)} - ${f.duration(ms)}`}
                 style={{
                   width: `${(ms / total) * 100}%`,
                   background: CAUSE_COLOR[cause] ?? "var(--color-device)",
@@ -43,11 +46,9 @@ export function Causes({ causes }: { causes: Record<string, number> }) {
                     className="inline-block size-2 shrink-0 rounded-[2px] not-italic"
                     style={{ background: CAUSE_COLOR[cause] ?? "var(--color-device)" }}
                   />
-                  <span className="truncate text-[var(--color-muted)]">
-                    {CAUSE_LABEL[cause] ?? cause}
-                  </span>
+                  <span className="truncate text-[var(--color-muted)]">{label(cause)}</span>
                 </span>
-                <span className="tnum shrink-0">{durasi(ms)}</span>
+                <span className="tnum shrink-0">{f.duration(ms)}</span>
               </li>
             ))}
           </ul>

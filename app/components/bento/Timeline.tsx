@@ -1,12 +1,12 @@
 import { Card } from "./primitives";
-import { durasi } from "../../lib/format";
+import { useI18n } from "../../lib/i18n";
 
 /**
- * Strip 24 jam hari ini, 96 ember 15 menit.
+ * Today as 96 blocks of 15 minutes.
  *
- * Ember yang sudah lewat tapi bersih tetap digambar abu terang, sedangkan yang
- * belum terjadi digambar lebih redup - tanpa pemisahan itu, jam 9 pagi terlihat
- * sama saja dengan jam 11 malam yang belum tiba.
+ * Blocks that have passed cleanly are drawn light green and blocks still to come
+ * are drawn dimmer - without that split, 9 a.m. looks the same as an 11 p.m. that
+ * has not happened yet.
  */
 export function Timeline({
   originMs,
@@ -19,20 +19,25 @@ export function Timeline({
   buckets: Array<{ down: number; degraded: number }>;
   now: number;
 }) {
+  const { t, f } = useI18n();
   const elapsedIndex = Math.floor((now - originMs) / bucketMs);
   const totalDown = buckets.reduce((sum, b) => sum + b.down, 0);
 
   return (
     <Card
-      label="Hari ini"
-      hint={totalDown > 0 ? `mati ${durasi(totalDown)}` : "belum ada gangguan"}
-      className="col-span-full lg:col-span-2"
+      label={t("today.label")}
+      info={t("today.info")}
+      hint={totalDown > 0 ? t("today.down", { d: f.duration(totalDown) }) : t("today.clean")}
+      className="col-span-2 min-h-[120px] fit:min-h-0"
     >
       <div className="flex min-h-0 flex-1 items-center">
         <div className="flex h-10 w-full items-stretch gap-[1px]">
           {buckets.map((bucket, index) => {
             const future = index > elapsedIndex;
             const ratio = Math.min(1, (bucket.down + bucket.degraded) / bucketMs);
+            const minutesIn = (index * bucketMs) / 60_000;
+            const time = f.clock(Math.floor(minutesIn / 60), minutesIn % 60);
+
             const color =
               bucket.down > 0
                 ? "var(--color-down)"
@@ -42,26 +47,21 @@ export function Timeline({
                     ? "var(--color-line-soft)"
                     : "color-mix(in oklab, var(--color-ok) 28%, var(--color-surface-2))";
 
-            const hour = String(Math.floor((index * bucketMs) / 3_600_000)).padStart(2, "0");
-            const minute = String(Math.floor(((index * bucketMs) % 3_600_000) / 60_000)).padStart(2, "0");
+            const title =
+              bucket.down > 0
+                ? t("today.blockDown", { t: time, d: f.duration(bucket.down) })
+                : bucket.degraded > 0
+                  ? t("today.blockSlow", { t: time, d: f.duration(bucket.degraded) })
+                  : future
+                    ? t("today.blockFuture", { t: time })
+                    : t("today.blockOk", { t: time });
 
             return (
               <div
                 key={index}
-                title={`${hour}.${minute} - ${
-                  bucket.down > 0
-                    ? `putus ${durasi(bucket.down)}`
-                    : bucket.degraded > 0
-                      ? `gangguan ${durasi(bucket.degraded)}`
-                      : future
-                        ? "belum terjadi"
-                        : "normal"
-                }`}
+                title={title}
                 className="min-w-0 flex-1 rounded-[2px]"
-                style={{
-                  background: color,
-                  opacity: ratio > 0 ? 0.45 + ratio * 0.55 : 1,
-                }}
+                style={{ background: color, opacity: ratio > 0 ? 0.45 + ratio * 0.55 : 1 }}
               />
             );
           })}

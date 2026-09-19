@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
+import { useI18n } from "../../lib/i18n";
 
 export const STATUS_COLOR: Record<string, string> = {
   sehat: "var(--color-ok)",
@@ -6,23 +7,6 @@ export const STATUS_COLOR: Record<string, string> = {
   putus: "var(--color-down)",
   listrik: "var(--color-power)",
   kontak: "var(--color-device)",
-};
-
-export const STATUS_LABEL: Record<string, string> = {
-  sehat: "Normal",
-  gangguan: "Gangguan",
-  putus: "Putus",
-  listrik: "Mati listrik",
-  kontak: "Hilang kontak",
-};
-
-export const CAUSE_LABEL: Record<string, string> = {
-  router: "Router",
-  dns: "DNS ISP",
-  wan: "ISP putus",
-  kualitas: "Kualitas",
-  listrik: "Listrik",
-  device: "Alat",
 };
 
 export const CAUSE_COLOR: Record<string, string> = {
@@ -34,50 +18,94 @@ export const CAUSE_COLOR: Record<string, string> = {
   device: "var(--color-device)",
 };
 
+/**
+ * The "i" next to a card title. Opens a short plain-language explanation of how
+ * the number is computed - several figures here are estimates built on
+ * assumptions, and a number you cannot interpret is a number you stop trusting.
+ */
+function Info({ text }: { text: string }) {
+  const { t } = useI18n();
+  const id = useId();
+  return (
+    <>
+      <button
+        type="button"
+        popoverTarget={id}
+        aria-label={t("info.open")}
+        title={t("info.open")}
+        className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold leading-none transition-colors hover:text-[var(--color-ink)]"
+        style={{ borderColor: "var(--color-line)", color: "var(--color-faint)" }}
+      >
+        i
+      </button>
+      <div id={id} popover="auto" className="info-popover">
+        <p>{text}</p>
+        <button
+          type="button"
+          popoverTarget={id}
+          popoverTargetAction="hide"
+          className="mt-3 text-xs font-medium text-[var(--color-accent)]"
+        >
+          {t("info.close")}
+        </button>
+      </div>
+    </>
+  );
+}
+
 export function Card({
   label,
+  info,
   hint,
   className = "",
   children,
 }: {
   label: string;
+  info?: string;
   hint?: ReactNode;
   className?: string;
   children: ReactNode;
 }) {
   return (
     <section className={`card ${className}`}>
-      <header className="flex shrink-0 items-baseline justify-between gap-2">
-        <h2 className="card-label">{label}</h2>
-        {hint ? <span className="text-[11px] text-[var(--color-faint)]">{hint}</span> : null}
+      <header className="flex shrink-0 items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <h2 className="card-label truncate">{label}</h2>
+          {info ? <Info text={info} /> : null}
+        </span>
+        {hint ? (
+          <span className="truncate text-[11px] text-[var(--color-faint)]">{hint}</span>
+        ) : null}
       </header>
       <div className="mt-2 flex min-h-0 flex-1 flex-col">{children}</div>
     </section>
   );
 }
 
-/** Kartu angka tunggal. Nilainya diberi ruang maksimal, keterangannya mengecil. */
+/** A single-number card. The value gets the room; the explanation stays small. */
 export function Stat({
   label,
+  info,
   value,
   sub,
   tone = "default",
   className = "",
 }: {
   label: string;
+  info?: string;
   value: ReactNode;
   sub?: ReactNode;
   tone?: "default" | "hero";
   className?: string;
 }) {
   return (
-    <Card label={label} className={className}>
+    <Card label={label} info={info} className={className}>
       <div className="flex min-h-0 flex-1 flex-col justify-center">
         <div
           className={`tnum font-semibold leading-none tracking-tight ${
             tone === "hero"
-              ? "text-[clamp(2rem,4.2vw,3.4rem)]"
-              : "text-[clamp(1.35rem,2.1vw,2rem)]"
+              ? "text-[clamp(2rem,3.6vw,3.2rem)]"
+              : "text-[clamp(1.35rem,1.9vw,1.9rem)]"
           }`}
         >
           {value}
@@ -87,15 +115,6 @@ export function Stat({
         ) : null}
       </div>
     </Card>
-  );
-}
-
-export function Dot({ color, className = "" }: { color: string; className?: string }) {
-  return (
-    <span
-      className={`inline-block size-2 shrink-0 rounded-full ${className}`}
-      style={{ background: color }}
-    />
   );
 }
 

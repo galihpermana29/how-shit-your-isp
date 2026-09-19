@@ -1,6 +1,6 @@
-import { CAUSE_COLOR, CAUSE_LABEL, Card, STATUS_LABEL } from "./primitives";
-import { durasi } from "../../lib/format";
-import { isWeekendWib, wibParts } from "../../../convex/lib/time";
+import { CAUSE_COLOR, Card } from "./primitives";
+import { useI18n, type MessageKey } from "../../lib/i18n";
+import { isWeekendWib } from "../../../convex/lib/time";
 
 export type IncidentRow = {
   _id: string;
@@ -12,25 +12,7 @@ export type IncidentRow = {
   bola: boolean;
 };
 
-function jam(ms: number): string {
-  const p = wibParts(ms);
-  const dd = String(p.day).padStart(2, "0");
-  const mm = String(p.month).padStart(2, "0");
-  const hh = String(p.hour).padStart(2, "0");
-  const mi = String(p.minute).padStart(2, "0");
-  return `${dd}/${mm} ${hh}.${mi}`;
-}
-
-/**
- * Daftar insiden terakhir, dengan penanda "lagi meeting".
- *
- * Penandanya manual dan itu disengaja. Meeting cuma sekitar 4% dari jam kerja
- * tapi enam kali lebih mahal per jamnya, jadi menaikkan tarif dasar untuk
- * menampungnya akan melebihkan hampir semua insiden. Satu klik pada insiden
- * yang memang menabrak meeting jauh lebih akurat - dan karena datanya mentah,
- * klik itu hanya mengubah satu penanda; rupiahnya dihitung ulang sendiri.
- */
-/** Tombol penanda - bentuknya sama, warnanya yang membedakan maksudnya. */
+/** A tag button: same shape for both, the colour carries the meaning. */
 function Tag({
   active,
   color,
@@ -59,6 +41,15 @@ function Tag({
   );
 }
 
+/**
+ * Recent outages, with manual tags.
+ *
+ * Tags are manual on purpose. Meetings are about 4% of working hours but cost
+ * twice as much data per hour, so raising the base rate to cover them would
+ * overstate nearly every outage. One click on the outage that actually hit a
+ * call is far more accurate - and because the data is raw, the click only flips
+ * a flag; the rupiah recomputes itself.
+ */
 export function IncidentList({
   incidents,
   now,
@@ -70,15 +61,18 @@ export function IncidentList({
   onToggleMeeting: (id: string, meeting: boolean) => void;
   onToggleBola: (id: string, bola: boolean) => void;
 }) {
+  const { t, f } = useI18n();
+
   return (
     <Card
-      label="Insiden terakhir"
-      hint={incidents.length > 0 ? "klik 'meeting' kalau kena" : "belum ada"}
-      className="col-span-full min-h-[150px] lg:col-span-2 lg:min-h-0"
+      label={t("incidents.label")}
+      info={t("incidents.info")}
+      hint={incidents.length > 0 ? t("incidents.hint") : undefined}
+      className="col-span-2 min-h-[170px] fit:min-h-0"
     >
       {incidents.length === 0 ? (
         <div className="flex flex-1 items-center justify-center text-xs text-[var(--color-faint)]">
-          Belum ada insiden tercatat.
+          {t("incidents.empty")}
         </div>
       ) : (
         <ul className="-mr-1 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
@@ -96,33 +90,32 @@ export function IncidentList({
                     style={{ background: CAUSE_COLOR[incident.cause] ?? "var(--color-device)" }}
                   />
                   <span className="tnum shrink-0 text-[11px] text-[var(--color-muted)]">
-                    {jam(incident.start)}
+                    {f.dayTime(incident.start)}
                   </span>
                   <span className="truncate text-[11px] text-[var(--color-faint)]">
-                    {CAUSE_LABEL[incident.cause] ?? STATUS_LABEL[incident.kind]}
+                    {t(`cause.${incident.cause}` as MessageKey)}
                   </span>
                 </span>
 
-                <span className="flex shrink-0 items-center gap-2">
-                  <span className="tnum text-[11px] font-medium">
-                    {ongoing ? "berlangsung" : durasi((incident.end ?? now) - incident.start)}
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <span className="tnum mr-0.5 text-[11px] font-medium">
+                    {ongoing ? t("incidents.ongoing") : f.duration((incident.end ?? now) - incident.start)}
                   </span>
                   {incident.kind === "putus" && (
                     <>
                       <Tag
                         active={incident.meeting}
                         color="var(--color-down)"
-                        label="meeting"
+                        label={t("tag.meeting")}
                         onClick={() => onToggleMeeting(incident._id, !incident.meeting)}
                       />
-                      {/* Bola hanya muncul di akhir pekan - menampilkannya pada
-                          outage Selasa siang cuma menambah tombol yang tak
-                          pernah dipakai dan memperlambat baris yang dibaca. */}
+                      {/* Football only on weekends - showing it on a Tuesday afternoon
+                          outage just adds a button nobody presses. */}
                       {isWeekendWib(incident.start) && (
                         <Tag
                           active={incident.bola}
                           color="var(--color-power)"
-                          label="bola"
+                          label={t("tag.bola")}
                           onClick={() => onToggleBola(incident._id, !incident.bola)}
                         />
                       )}

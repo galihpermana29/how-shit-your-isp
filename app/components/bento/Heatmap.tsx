@@ -1,18 +1,16 @@
 import { Card } from "./primitives";
-import { durasi, durasiPanjang } from "../../lib/format";
+import { useI18n } from "../../lib/i18n";
 
 /**
- * Heatmap kalender: kolom = hari, baris = jam, plus histogram marginal di kanan.
+ * Calendar heatmap: columns are days, rows are hours, with a marginal histogram.
  *
- * Orientasinya sengaja begini dan bukan sebaliknya. Yang dicari dari papan ini
- * adalah pola *jam* - kalau kotak merah menumpuk di satu baris, itu kongesti
- * jam sibuk ISP, bukan nasib sial. Menaruh jam di sumbu horizontal membuat pola
- * itu tersebar dan hilang.
+ * The orientation is deliberate. What this card is for is the *hour* pattern: red
+ * stacking up along one row is ISP rush-hour congestion, not bad luck. Putting
+ * hours on the horizontal axis smears that pattern out.
  *
- * Histogram di kanan adalah total per jam selama 30 hari. Ia ditempel di sini
- * alih-alih jadi kartu sendiri karena sumbunya persis sama: batang paling
- * panjang berbaris tepat dengan baris paling merah, dan mata langsung
- * menghubungkan keduanya tanpa harus mencocokkan dua kartu terpisah.
+ * The bars on the right total each hour over 30 days. They sit in this card rather
+ * than their own because the axis is identical - the longest bar lines up with the
+ * reddest row, and the eye connects them without matching two separate cards.
  */
 export function Heatmap({
   dayKeys,
@@ -25,24 +23,28 @@ export function Heatmap({
   hourMs: number;
   hourRisk: number[];
 }) {
+  const { t, f } = useI18n();
   const worst = Math.max(hourMs * 0.05, ...cells.flat());
   const peak = Math.max(1, ...hourRisk);
   const worstHour = hourRisk.indexOf(Math.max(...hourRisk));
   const totalMs = cells.flat().reduce((a, b) => a + b, 0);
 
-  // Akar kuadrat, bukan linear: outage satu menit harus tetap terlihat di
-  // samping outage satu jam, dan skala linear membuatnya nyaris hitam.
+  // Square root, not linear: a one-minute outage must stay visible next to a
+  // one-hour one, and a linear scale renders it almost black.
   const intensity = (ms: number) => (ms <= 0 ? 0 : Math.min(1, Math.sqrt(ms / worst)));
+  const shade = (alpha: number) =>
+    `color-mix(in oklab, var(--color-down) ${Math.round(alpha * 100)}%, var(--color-surface-2))`;
 
   return (
     <Card
-      label="Pola 35 hari"
+      label={t("heatmap.label")}
+      info={t("heatmap.info")}
       hint={
         totalMs > 0
-          ? `${durasiPanjang(totalMs)} · puncak ${String(worstHour).padStart(2, "0")}.00`
-          : "bersih"
+          ? t("heatmap.hint", { d: f.duration(totalMs), h: f.clock(worstHour) })
+          : t("heatmap.clean")
       }
-      className="col-span-2 min-h-[240px] lg:col-span-4 lg:row-span-2 lg:min-h-0"
+      className="col-span-2 min-h-[280px] lg:col-span-4 lg:row-span-2 fit:min-h-0"
     >
       <div className="flex min-h-0 flex-1 gap-2">
         <div className="flex shrink-0 flex-col justify-between py-[1px] text-[9px] tabular-nums text-[var(--color-faint)]">
@@ -63,22 +65,13 @@ export function Heatmap({
             Array.from({ length: 24 }, (_, hour) => {
               const ms = cells[dayIndex]?.[hour] ?? 0;
               const alpha = intensity(ms);
-              const jam = String(hour).padStart(2, "0");
+              const vars = { day: dayKey, hour: f.clock(hour), d: f.duration(ms) };
               return (
                 <div
                   key={`${dayKey}-${hour}`}
-                  title={
-                    ms > 0
-                      ? `${dayKey} jam ${jam}.00 - mati ${durasiPanjang(ms)}`
-                      : `${dayKey} jam ${jam}.00 - normal`
-                  }
+                  title={ms > 0 ? t("heatmap.cellDown", vars) : t("heatmap.cellOk", vars)}
                   className="rounded-[2px]"
-                  style={{
-                    background:
-                      alpha === 0
-                        ? "var(--color-line-soft)"
-                        : `color-mix(in oklab, var(--color-down) ${Math.round(alpha * 100)}%, var(--color-surface-2))`,
-                  }}
+                  style={{ background: alpha === 0 ? "var(--color-line-soft)" : shade(alpha) }}
                 />
               );
             }),
@@ -90,7 +83,11 @@ export function Heatmap({
           style={{ gridTemplateRows: "repeat(24, minmax(0, 1fr))", borderColor: "var(--color-line-soft)" }}
         >
           {hourRisk.map((ms, hour) => (
-            <div key={hour} className="flex items-center" title={`${String(hour).padStart(2, "0")}.00 - ${ms > 0 ? durasi(ms) : "bersih"}`}>
+            <div
+              key={hour}
+              className="flex items-center"
+              title={`${f.clock(hour)} - ${f.duration(ms)}`}
+            >
               <div
                 className="h-full rounded-[2px] transition-[width] duration-500"
                 style={{
@@ -100,7 +97,7 @@ export function Heatmap({
                       ? "var(--color-line-soft)"
                       : hour === worstHour
                         ? "var(--color-down)"
-                        : "color-mix(in oklab, var(--color-down) 55%, var(--color-surface-2))",
+                        : shade(0.55),
                 }}
               />
             </div>
@@ -108,22 +105,18 @@ export function Heatmap({
         </div>
       </div>
 
-      <div className="mt-2 flex shrink-0 items-center justify-between text-[10px] text-[var(--color-faint)]">
+      <div className="mt-2 flex shrink-0 items-center justify-between gap-3 text-[10px] text-[var(--color-faint)]">
         <span>{dayKeys[0]}</span>
         <span className="flex items-center gap-1">
-          sedikit
+          {t("heatmap.fewer")}
           {[0.15, 0.4, 0.7, 1].map((a) => (
-            <i
-              key={a}
-              className="inline-block size-2 rounded-[2px] not-italic"
-              style={{
-                background: `color-mix(in oklab, var(--color-down) ${Math.round(a * 100)}%, var(--color-surface-2))`,
-              }}
-            />
+            <i key={a} className="inline-block size-2 rounded-[2px] not-italic" style={{ background: shade(a) }} />
           ))}
-          banyak
+          {t("heatmap.more")}
         </span>
-        <span>{dayKeys[dayKeys.length - 1]} · 30 hari →</span>
+        <span className="text-right">
+          {dayKeys[dayKeys.length - 1]} · {t("heatmap.perHour")} →
+        </span>
       </div>
     </Card>
   );

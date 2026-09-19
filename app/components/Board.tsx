@@ -3,15 +3,16 @@ import { StatusBar } from "./bento/StatusBar";
 import { Heatmap } from "./bento/Heatmap";
 import { Timeline } from "./bento/Timeline";
 import { Quality } from "./bento/Quality";
-import { Buckets } from "./bento/Buckets";
+import { Costs } from "./bento/Costs";
 import { Causes } from "./bento/Causes";
 import { IncidentList, type IncidentRow } from "./bento/IncidentList";
-import { durasi, persen, rupiah } from "../lib/format";
+import { useI18n } from "../lib/i18n";
 
 export type BoardData = {
   now: number;
   status: string;
   streakMs: number | null;
+  settings: { quotaGbPerMonth: number; workStartHour: number; workEndHour: number };
   device: {
     online: boolean;
     silentMs: number | null;
@@ -22,7 +23,6 @@ export type BoardData = {
     quotaMb: number;
     quotaRupiah: number;
     quotaPctOfPlan: number;
-    prevQuotaRupiah: number;
     prevDownMs: number;
     ispWastedRupiah: number;
     streamingWastedRupiah: number;
@@ -30,7 +30,6 @@ export type BoardData = {
     degradedMs: number;
     unknownMs: number;
     workDownMs: number;
-    leisureDownMs: number;
     ispFaultMs: number;
     incidentCount: number;
     longestMs: number;
@@ -45,19 +44,16 @@ export type BoardData = {
 };
 
 /**
- * Papan bento - murni presentasional, tanpa sentuhan Convex.
+ * The bento board - purely presentational, no Convex.
  *
- * Dipisah begini supaya tata letaknya bisa dilihat dan disetel tanpa perangkat
- * keras terpasang: rute `/preview` memberinya data sintetis. Menyetel papan
- * sambil menunggu insiden asli terjadi bukan cara kerja yang masuk akal.
+ * Kept separate so the layout can be tuned without hardware: the `/preview`
+ * route feeds it synthetic data.
  *
- * Di desktop tingginya dikunci 100dvh dan tidak menggulir - seluruh papan harus
- * terbaca dalam satu lirikan. Di layar kecil kuncinya dilepas dan kartunya
- * menumpuk: memaksa sebelas kartu ke satu layar ponsel memberi tiap kartu jatah
- * enam puluh piksel, dan angkanya jadi tidak terbaca di mana pun.
- *
- * Satuannya `dvh`, bukan `vh`. Di Safari ponsel `100vh` tidak menghitung bilah
- * alamat, sehingga kartu paling bawah selalu tertutup.
+ * On tall enough desktop screens (the `fit` variant) the board is locked to one
+ * screen and does not scroll. Below that height it is not forced: forcing it is
+ * what clipped card content on laptop screens. Cards then keep their natural
+ * height and the page scrolls. `dvh`, not `vh`, because mobile Safari's `100vh`
+ * ignores the address bar.
  */
 export function Board({
   data,
@@ -68,17 +64,18 @@ export function Board({
   onToggleMeeting: (id: string, meeting: boolean) => void;
   onToggleBola: (id: string, bola: boolean) => void;
 }) {
-  const { month, device } = data;
+  const { t, f } = useI18n();
+  const { month, device, settings } = data;
 
-  // Angka utama memakai durasi, bukan rupiah. Rupiahnya sendiri ternyata kecil -
-  // beberapa ribu sebulan - dan headline sebesar itu membuat papan ini berhenti
-  // dibuka, padahal lima jam tidak bisa bekerja itu masalah nyata. Rupiah tetap
-  // dihitung persis sama dan turun satu baris, bukan dihapus.
   const deltaMs = month.downMs - month.prevDownMs;
-  const naik = deltaMs > 0;
+  const lostRupiah = month.quotaRupiah + month.ispWastedRupiah + month.streamingWastedRupiah;
+  const workWindow = {
+    start: f.clock(settings.workStartHour),
+    end: f.clock(settings.workEndHour),
+  };
 
   return (
-    <main className="flex min-h-[100dvh] flex-col gap-3 p-4 lg:h-[100dvh] lg:overflow-hidden">
+    <main className="flex min-h-[100dvh] flex-col gap-3 p-4 fit:h-[100dvh] fit:overflow-hidden">
       <StatusBar
         status={data.status}
         streakMs={data.streakMs}
@@ -88,63 +85,77 @@ export function Board({
         firmware={device.firmware}
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:grid-rows-[0.95fr_1.15fr_1.15fr_1fr]">
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:auto-rows-[minmax(150px,auto)] fit:grid-rows-[0.95fr_1.15fr_1.15fr_1fr]">
+        {/* Duration leads, not rupiah. The money turned out to be a few thousand
+            a month - honest, but too small to carry a headline that should make
+            you care about five hours without internet. */}
         <Stat
-          className="col-span-2 min-h-[120px] lg:col-span-2 lg:min-h-0"
+          className="col-span-2 min-h-[130px] fit:min-h-0"
           tone="hero"
-          label="Total mati bulan ini"
-          value={durasi(month.downMs)}
+          label={t("hero.label")}
+          info={t("hero.info")}
+          value={f.duration(month.downMs)}
           sub={
             <span className="flex flex-col gap-0.5">
               <span>
-                {rupiah(month.quotaRupiah + month.ispWastedRupiah + month.streamingWastedRupiah)}
-                {" · "}
-                {persen(month.quotaPctOfPlan, 1)} jatah kuota
+                {t("hero.cost", { rp: f.rupiah(lostRupiah), pct: f.percent(month.quotaPctOfPlan, 1) })}
               </span>
               {month.prevDownMs > 0 ? (
-                <span style={{ color: naik ? "var(--color-down)" : "var(--color-ok)" }}>
-                  {naik ? "▲" : "▼"} {durasi(Math.abs(deltaMs))} dibanding bulan lalu
+                <span style={{ color: deltaMs > 0 ? "var(--color-down)" : "var(--color-ok)" }}>
+                  {deltaMs > 0
+                    ? `▲ ${t("hero.more", { d: f.duration(deltaMs) })}`
+                    : `▼ ${t("hero.less", { d: f.duration(-deltaMs) })}`}
                 </span>
               ) : (
-                <span className="text-[var(--color-faint)]">
-                  bulan pertama - belum ada pembanding
-                </span>
+                <span className="text-[var(--color-faint)]">{t("hero.first")}</span>
               )}
             </span>
           }
         />
 
         <Stat
-          label="Jam kerja kepotong"
-          value={durasi(month.workDownMs)}
-          sub={`${durasi(month.leisureDownMs)} di luar jam kerja`}
+          className="min-h-[120px] fit:min-h-0"
+          label={t("outages.label")}
+          info={t("outages.info")}
+          value={month.incidentCount}
+          sub={
+            month.longestMs > 0
+              ? t("outages.longest", { d: f.duration(month.longestMs) })
+              : t("outages.none")
+          }
         />
 
         <Stat
-          label="Jumlah kejadian"
-          value={
-            <span>
-              {month.incidentCount}
-              <span className="text-base font-normal text-[var(--color-faint)]">×</span>
+          className="min-h-[120px] fit:min-h-0"
+          label={t("work.label")}
+          info={t("work.info", workWindow)}
+          value={f.duration(month.workDownMs)}
+          sub={t("work.sub", workWindow)}
+        />
+
+        <Stat
+          className="min-h-[120px] fit:min-h-0"
+          label={t("slow.label")}
+          info={t("slow.info")}
+          value={f.duration(month.degradedMs)}
+          sub={t("slow.sub")}
+        />
+
+        <Stat
+          className="min-h-[120px] fit:min-h-0"
+          label={t("uptime.label")}
+          info={t("uptime.info")}
+          value={f.percent(month.uptimePct)}
+          sub={
+            <span className="flex flex-col gap-0.5">
+              <span>{t("uptime.isp", { d: f.duration(month.ispFaultMs) })}</span>
+              {month.unknownMs > 0 && (
+                <span className="text-[var(--color-faint)]">
+                  {t("uptime.unmeasured", { d: f.duration(month.unknownMs) })}
+                </span>
+              )}
             </span>
           }
-          sub={`${durasi(month.degradedMs)} gangguan ringan`}
-        />
-
-        <Stat
-          label="Uptime"
-          value={persen(month.uptimePct)}
-          sub={
-            month.unknownMs > 0
-              ? `salah ISP ${durasi(month.ispFaultMs)} · ${durasi(month.unknownMs)} tak terukur`
-              : `salah ISP ${durasi(month.ispFaultMs)}`
-          }
-        />
-
-        <Stat
-          label="Outage terlama"
-          value={durasi(month.longestMs)}
-          sub={month.longestMs > 0 ? "sekali kejadian" : "belum ada"}
         />
 
         <Heatmap
@@ -154,13 +165,13 @@ export function Board({
           hourRisk={data.hourRisk}
         />
 
-        <Buckets
+        <Costs
           quotaMb={month.quotaMb}
           quotaRupiah={month.quotaRupiah}
           ispWasted={month.ispWastedRupiah}
           streamingWasted={month.streamingWastedRupiah}
-          workDownMs={month.workDownMs}
-          degradedMs={month.degradedMs}
+          quotaPctOfPlan={month.quotaPctOfPlan}
+          quotaGbPerMonth={settings.quotaGbPerMonth}
         />
 
         <Causes causes={data.causes} />

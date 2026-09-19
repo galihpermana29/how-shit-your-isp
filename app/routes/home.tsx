@@ -6,7 +6,8 @@ import type { Route } from "./+types/home";
 
 import { Board } from "../components/Board";
 import { getConvexClient } from "../lib/convex";
-import { Card, Skeleton } from "../components/bento/primitives";
+import { useI18n } from "../lib/i18n";
+import { Skeleton } from "../components/bento/primitives";
 
 export function meta(_: Route.MetaArgs) {
   return [
@@ -36,13 +37,11 @@ export default function Home() {
 }
 
 function MissingConvex() {
+  const { t } = useI18n();
   return (
     <main className="mx-auto max-w-xl p-8 text-sm text-[var(--color-muted)]">
-      <h1 className="text-base font-semibold text-[var(--color-ink)]">Convex belum tersambung</h1>
-      <p className="mt-2">
-        <code>VITE_CONVEX_URL</code> kosong. Jalankan <code>npx convex dev</code> lalu mulai ulang
-        server dev.
-      </p>
+      <h1 className="text-base font-semibold text-[var(--color-ink)]">{t("missing.title")}</h1>
+      <p className="mt-2">{t("missing.body")}</p>
     </main>
   );
 }
@@ -71,30 +70,30 @@ function LiveBoard() {
 
 function LoadingBoard() {
   const spans = [
-    "col-span-2 lg:col-span-2",
+    "col-span-2",
     "",
     "",
     "",
     "",
     "col-span-2 lg:col-span-4 lg:row-span-2",
-    "col-span-2 lg:col-span-2",
-    "col-span-2 lg:col-span-2",
-    "col-span-2 lg:col-span-2",
-    "col-span-2 lg:col-span-2",
-    "col-span-2 lg:col-span-2",
+    "col-span-2",
+    "col-span-2",
+    "col-span-2",
+    "col-span-2",
+    "col-span-2",
   ];
 
   return (
-    <main className="flex min-h-[100dvh] flex-col gap-3 p-4 lg:h-[100dvh] lg:overflow-hidden">
-      <div className="flex shrink-0 items-center gap-2.5 px-1 pb-3">
+    <main className="flex min-h-[100dvh] flex-col gap-3 p-4 fit:h-[100dvh] fit:overflow-hidden">
+      <div className="flex shrink-0 items-center gap-2.5 px-1 pb-1">
         <Skeleton className="size-2.5 rounded-full" />
         <Skeleton className="h-4 w-40" />
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:grid-rows-[0.95fr_1.15fr_1.15fr_1fr]">
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:auto-rows-[minmax(150px,auto)] fit:grid-rows-[0.95fr_1.15fr_1.15fr_1fr]">
         {spans.map((span, index) => (
-          <Card key={index} label="" className={`${span} min-h-[110px] lg:min-h-0`}>
+          <section key={index} className={`card ${span} min-h-[120px] fit:min-h-0`}>
             <Skeleton className="h-full w-full" />
-          </Card>
+          </section>
         ))}
       </div>
     </main>
