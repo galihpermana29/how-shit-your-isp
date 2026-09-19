@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { readSettings, ensureSettings } from "./settings";
-import { buildIncidents, SAMPLE_INTERVAL_MS } from "./lib/incidents";
+import { buildIncidents, inheritFlags, SAMPLE_INTERVAL_MS, type FlagSource } from "./lib/incidents";
 import { median } from "./lib/status";
 import { DAY_MS } from "./lib/time";
 
@@ -32,6 +32,10 @@ export const derive = internalMutation({
     if (!device) return { built: 0, reason: "belum ada perangkat" };
 
     let rebuildFrom = device.derivedUpTo;
+    const flagged: FlagSource[] = [];
+    const remember = (incident: FlagSource) => {
+      if (incident.meeting || incident.bola) flagged.push(incident);
+    };
 
     // Insiden yang melintasi kursor harus dibangun ulang dari awalnya sendiri,
     // bukan dari kursor - kalau tidak, ia terpotong jadi dua.
@@ -45,6 +49,7 @@ export const derive = internalMutation({
       const end = incident.end ?? Number.POSITIVE_INFINITY;
       if (end > rebuildFrom) {
         rebuildFrom = Math.min(rebuildFrom, incident.start);
+        remember(incident);
         await ctx.db.delete(incident._id);
       }
     }
@@ -53,7 +58,10 @@ export const derive = internalMutation({
       .query("incidents")
       .withIndex("by_start", (q) => q.gte("start", rebuildFrom))
       .collect();
-    for (const incident of stale) await ctx.db.delete(incident._id);
+    for (const incident of stale) {
+      remember(incident);
+      await ctx.db.delete(incident._id);
+    }
 
     // Satu sampel sebelum kursor ikut ditarik supaya lubang data tepat di batas
     // jendela tetap terdeteksi.
@@ -71,7 +79,7 @@ export const derive = internalMutation({
     let built = 0;
     for (const draft of drafts) {
       if (draft.start < rebuildFrom) continue;
-      await ctx.db.insert("incidents", { ...draft, meeting: false, bola: false });
+      await ctx.db.insert("incidents", { ...draft, ...inheritFlags(draft, flagged, now) });
       built += 1;
     }
 

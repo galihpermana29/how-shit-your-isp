@@ -142,3 +142,37 @@ export function buildIncidents(
   flush(true);
   return drafts;
 }
+
+export type FlagSource = {
+  start: number;
+  end: number | null;
+  meeting: boolean;
+  bola: boolean;
+};
+
+/**
+ * Penanda manual yang harus diwarisi insiden hasil bangun ulang.
+ *
+ * `derive` menghapus lalu membangun ulang insiden di jendela terakhir supaya
+ * sampel yang telat datang tetap terbaca. Tanpa pewarisan, penanda yang baru
+ * diklik lenyap di putaran cron berikutnya - dan justru insiden yang masih
+ * berlangsung, yang paling mungkin sedang ditandai, selalu ada di jendela itu.
+ * Pewarisan memakai irisan waktu, bukan id, karena id memang berganti.
+ */
+export function inheritFlags(
+  draft: { start: number; end: number | null },
+  previous: FlagSource[],
+  now: number,
+): { meeting: boolean; bola: boolean } {
+  const draftEnd = draft.end ?? now;
+  let meeting = false;
+  let bola = false;
+  for (const old of previous) {
+    const oldEnd = old.end ?? now;
+    const overlaps = old.start < draftEnd && oldEnd > draft.start;
+    if (!overlaps) continue;
+    meeting ||= old.meeting;
+    bola ||= old.bola;
+  }
+  return { meeting, bola };
+}

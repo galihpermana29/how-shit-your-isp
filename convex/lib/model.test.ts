@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { splitByBand, wibParts, wibDayKey, isWorkHour, monthBandTotals, HOUR_MS } from "./time";
 import { quotaMb, monthlyCost, DEFAULT_SETTINGS } from "./cost";
 import { classify } from "./status";
-import { buildIncidents, SAMPLE_INTERVAL_MS } from "./incidents";
+import { buildIncidents, inheritFlags, SAMPLE_INTERVAL_MS } from "./incidents";
 
 const S = DEFAULT_SETTINGS;
 
@@ -319,4 +319,17 @@ test("hanya Minggu yang pakai tarif santai - Sabtu ikut tarif kerja", () => {
 
   // Penanda menang atas ketiganya - pertandingan Sabtu malam tetap mahal.
   assert.equal(quotaMb({ ...sabtu, bola: true }, S, Date.now()), S.rateBolaMbPerHour);
+});
+
+test("penanda manual bertahan saat insiden dibangun ulang", () => {
+  const now = t0 + 60 * SAMPLE_INTERVAL_MS;
+  // Insiden lama yang sudah diklik "meeting" lalu dihapus oleh derive.
+  const lama = { start: t0, end: null, meeting: true, bola: false };
+  // Insiden hasil bangun ulang, rentangnya sedikit bergeser karena sampel baru.
+  const baru = { start: t0 + SAMPLE_INTERVAL_MS, end: t0 + 40 * SAMPLE_INTERVAL_MS };
+  assert.deepEqual(inheritFlags(baru, [lama], now), { meeting: true, bola: false });
+
+  // Insiden lain yang tidak beririsan tidak ikut mewarisi.
+  const jauh = { start: t0 + 500 * SAMPLE_INTERVAL_MS, end: t0 + 510 * SAMPLE_INTERVAL_MS };
+  assert.deepEqual(inheritFlags(jauh, [lama], now), { meeting: false, bola: false });
 });
