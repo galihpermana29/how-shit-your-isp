@@ -95,7 +95,7 @@ test("tagihan ISP hangus untuk kegagalan sisi ISP, termasuk router bawaan", () =
   const listrik = monthlyCost([satuJam("listrik", "listrik")], S, now, now);
 
   assert.ok(isp.ispWastedRupiah > 0);
-  // Router bawaan IndiHome itu perangkat mereka, jadi ikut terhitung.
+  // Router bawaan provider itu perangkat mereka, jadi ikut terhitung.
   assert.ok(router.ispWastedRupiah > 0);
   // Mati listrik urusan PLN, tidak boleh ditagihkan ke ISP.
   assert.equal(listrik.ispWastedRupiah, 0);

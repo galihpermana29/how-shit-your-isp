@@ -43,7 +43,7 @@ export function classify(
     // Gateway tak terjangkau itu ambigu: routernya nge-hang, ATAU sinyal
     // ESP32-nya sendiri yang lemah. Selama "router" tidak dihitung sebagai
     // kesalahan ISP, salah tebak tidak berakibat apa-apa. Begitu ia ikut
-    // ditagihkan - dan pada router bawaan IndiHome memang begitu - salah tebak
+    // ditagihkan - dan pada router bawaan provider memang begitu - salah tebak
     // langsung menambah rupiah ke angka yang dipakai menuduh. Maka sampel
     // bersinyal lemah dilempar ke "device", yang tidak dihitung sama sekali.
     if (sample.rssi < t.rssiFloorDbm) return { status: "putus", cause: "device" };

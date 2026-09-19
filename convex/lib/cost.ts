@@ -94,7 +94,7 @@ export function quotaRupiah(mb: number, s: CostSettings): number {
 /**
  * Penyebab yang benar-benar ada di sisi ISP - ini yang layak diklaim refund.
  *
- * "router" ikut masuk karena CPE-nya milik IndiHome, bukan milik penghuni:
+ * "router" ikut masuk karena CPE-nya milik provider, bukan milik penghuni:
  * perangkat mereka yang nge-hang tetap kegagalan mereka mengirim layanan.
  * Di rumah dengan router beli sendiri, baris itu harus dikeluarkan.
  *
@@ -227,7 +227,7 @@ export const DEFAULT_SETTINGS: CostSettings & {
   pricePerGb: 2000, // dibulatkan ke atas dari Rp 1.515 paket dasar - kuota
   // pengganti yang dibeli setelah jatah habis harganya memang lebih mahal
   quotaGbPerMonth: 66,
-  ispMonthly: 360_000,
+  ispMonthly: 300_000,
   streamingMonthly: 150_000,
   rateWorkMbPerHour: 1024, // pengamatan sendiri: ~1 GB/jam, sudah termasuk Discord
   rateSundayMbPerHour: 150,

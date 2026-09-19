@@ -84,7 +84,7 @@ const en = {
 
   "causes.label": "What caused it",
   "causes.info":
-    "Where this month's downtime came from. Router, ISP DNS and ISP outage count as the ISP's fault, since the router is IndiHome's. Power cuts and monitor downtime don't.",
+    "Where this month's downtime came from. Router, ISP DNS and ISP outage count as the ISP's fault, since the router belongs to the provider. Power cuts and monitor downtime don't.",
   "causes.empty": "No outages this month.",
 
   "today.label": "Today",
@@ -196,7 +196,7 @@ const id: Record<MessageKey, string> = {
 
   "causes.label": "Penyebab",
   "causes.info":
-    "Asal waktu mati bulan ini. Router, DNS ISP, dan ISP putus dihitung salah ISP, karena routernya milik IndiHome. Mati listrik dan alat offline tidak.",
+    "Asal waktu mati bulan ini. Router, DNS ISP, dan ISP putus dihitung salah ISP, karena routernya milik provider. Mati listrik dan alat offline tidak.",
   "causes.empty": "Belum ada outage bulan ini.",
 
   "today.label": "Hari ini",
