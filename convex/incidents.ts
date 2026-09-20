@@ -116,6 +116,13 @@ export const refreshBaseline = internalMutation({
       .filter((s) => s.wan && s.loss === 0 && s.rtt !== null)
       .map((s) => s.rtt as number);
 
+    // Segelintir sampel dari jam-jam kacau bisa menghasilkan "normal" ratusan
+    // milidetik, dan ambang gangguan (3x normal) praktis mati sampai hitungan
+    // berikutnya. Baseline baru hanya sah dari minimal 30 menit data sehat;
+    // kalau kurang, angka lama dipertahankan.
+    if (healthy.length < 120) {
+      return { baseline: device.baselineRtt, from: healthy.length, kept: true };
+    }
     const baseline = median(healthy);
     await ctx.db.patch(device._id, { baselineRtt: baseline, baselineAt: Date.now() });
     return { baseline, from: healthy.length };

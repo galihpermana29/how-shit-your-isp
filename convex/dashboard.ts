@@ -63,18 +63,28 @@ export const overview = query({
     const prevCost = monthlyCost(lastMonth.map(asLike), settings, prevMonthStart, now);
 
     // --- Strip hari ini: 96 ember 15 menit ---------------------------------
+    // "kontak" bukan internet mati - itu alat yang bisu, waktu yang tidak
+    // terukur. Sebelumnya ia ikut ember merah, dan alat yang dicabut sebentar
+    // tampil di papan sebagai outage.
     const todayStart = wibStartOfDay(now);
-    const timeline = Array.from({ length: 96 }, () => ({ down: 0, degraded: 0 }));
-    for (const incident of history) {
-      const start = Math.max(incident.start, todayStart);
-      const end = Math.min(incident.end ?? now, todayStart + DAY_MS);
-      if (end <= start) continue;
-      const degraded = incident.kind === "gangguan";
-      distributeByBucket(start, end, todayStart, TIMELINE_BUCKET_MS, (index, ms) => {
-        if (index < 0 || index >= 96) return;
-        if (degraded) timeline[index].degraded += ms;
-        else timeline[index].down += ms;
+    const firstSample = await ctx.db.query("samples").withIndex("by_t").order("asc").first();
+    const measuredFrom = firstSample?.t ?? now;
+
+    const timeline = Array.from({ length: 96 }, () => ({ down: 0, degraded: 0, unmeasured: 0 }));
+    const addTimeline = (start: number, end: number, key: "down" | "degraded" | "unmeasured") => {
+      const from = Math.max(start, todayStart);
+      const to = Math.min(end, todayStart + DAY_MS);
+      if (to <= from) return;
+      distributeByBucket(from, to, todayStart, TIMELINE_BUCKET_MS, (index, ms) => {
+        if (index >= 0 && index < 96) timeline[index][key] += ms;
       });
+    };
+
+    addTimeline(0, measuredFrom, "unmeasured");
+    for (const incident of history) {
+      const key =
+        incident.kind === "gangguan" ? "degraded" : incident.kind === "kontak" ? "unmeasured" : "down";
+      addTimeline(incident.start, incident.end ?? now, key);
     }
 
     // --- Heatmap kalender: 35 hari x 24 jam --------------------------------
@@ -83,19 +93,29 @@ export const overview = query({
       dayKeys.push(wibDayKey(heatmapStart + i * DAY_MS));
     }
     const dayIndex = new Map(dayKeys.map((key, index) => [key, index]));
-    const heatmap = dayKeys.map(() => new Array<number>(24).fill(0));
+    // Per sel: [mati, gangguan, tak terukur]. Sel yang terukur dan sehat harus
+    // bisa dibedakan dari sel yang tidak diukur sama sekali - sebelumnya 34
+    // kolom kosong terbaca "internet sempurna sebulan" padahal artinya "alatnya
+    // belum ada".
+    const heatmap = dayKeys.map(() => Array.from({ length: 24 }, () => [0, 0, 0] as [number, number, number]));
     const hourRisk = new Array<number>(24).fill(0);
 
-    for (const incident of history) {
-      if (incident.kind === "gangguan") continue;
-      const start = Math.max(incident.start, heatmapStart);
-      const end = Math.min(incident.end ?? now, now);
-      if (end <= start) continue;
-      distributeByHour(start, end, (dayKey, hour, ms) => {
+    const addHeatmap = (start: number, end: number, slot: 0 | 1 | 2, risk: boolean) => {
+      const from = Math.max(start, heatmapStart);
+      const to = Math.min(end, now);
+      if (to <= from) return;
+      distributeByHour(from, to, (dayKey, hour, ms) => {
         const index = dayIndex.get(dayKey);
-        if (index !== undefined) heatmap[index][hour] += ms;
-        if (start >= riskStart) hourRisk[hour] += ms;
+        if (index !== undefined) heatmap[index][hour][slot] += ms;
+        if (risk && from >= riskStart) hourRisk[hour] += ms;
       });
+    };
+
+    addHeatmap(0, measuredFrom, 2, false);
+    for (const incident of history) {
+      if (incident.kind === "gangguan") addHeatmap(incident.start, incident.end ?? now, 1, false);
+      else if (incident.kind === "kontak") addHeatmap(incident.start, incident.end ?? now, 2, false);
+      else addHeatmap(incident.start, incident.end ?? now, 0, true);
     }
 
     // --- Grafik RTT & jitter 24 jam, dari ringkasan bukan sampel mentah ----
