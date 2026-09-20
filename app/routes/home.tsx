@@ -78,20 +78,20 @@ function LoadingBoard() {
     "col-span-2 lg:col-span-4 lg:row-span-2",
     "col-span-2",
     "col-span-2",
-    "col-span-2",
+    "col-span-2 lg:col-span-4 lg:row-span-2",
     "col-span-2",
     "col-span-2",
   ];
 
   return (
-    <main className="flex min-h-[100dvh] flex-col gap-3 p-4 fit:h-[100dvh] fit:overflow-hidden">
+    <main className="flex min-h-[100dvh] flex-col gap-3 p-4">
       <div className="flex shrink-0 items-center gap-2.5 px-1 pb-1">
         <Skeleton className="size-2.5 rounded-full" />
         <Skeleton className="h-4 w-40" />
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:auto-rows-[minmax(150px,auto)] fit:grid-rows-[0.95fr_1.15fr_1.15fr_1fr]">
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:auto-rows-[minmax(150px,auto)]">
         {spans.map((span, index) => (
-          <section key={index} className={`card ${span} min-h-[120px] fit:min-h-0`}>
+          <section key={index} className={`card ${span} min-h-[120px]`}>
             <Skeleton className="h-full w-full" />
           </section>
         ))}

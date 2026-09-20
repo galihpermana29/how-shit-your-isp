@@ -164,7 +164,7 @@ export function Heatmap({
           ? t("heatmap.hint", { d: f.duration(totalDown), h: f.clock(worstHour) })
           : t("heatmap.clean")
       }
-      className="col-span-2 min-h-[260px] lg:col-span-4 lg:row-span-2 fit:min-h-0"
+      className="col-span-2 min-h-[300px] lg:col-span-4 lg:row-span-2"
     >
       <div className="flex min-h-0 flex-1 gap-2">
         <div className="flex shrink-0 flex-col justify-between py-[1px] text-[9px] tabular-nums text-[var(--color-faint)]">

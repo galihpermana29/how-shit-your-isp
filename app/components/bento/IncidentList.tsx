@@ -68,7 +68,7 @@ export function IncidentList({
       label={t("incidents.label")}
       info={t("incidents.info")}
       hint={incidents.length > 0 ? t("incidents.hint") : undefined}
-      className="col-span-2 min-h-[170px] fit:min-h-0"
+      className="col-span-2 min-h-[170px] lg:max-h-[300px]"
     >
       {incidents.length === 0 ? (
         <div className="flex flex-1 items-center justify-center text-xs text-[var(--color-faint)]">

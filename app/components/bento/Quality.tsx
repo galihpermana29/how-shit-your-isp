@@ -36,7 +36,7 @@ export function Quality({ points, baselineRtt }: { points: Point[]; baselineRtt:
   const chartRef = useRef<HTMLDivElement>(null);
   const crosshairRef = useRef<HTMLDivElement>(null);
   const dotRef = useRef<HTMLDivElement>(null);
-  const className = "col-span-2 min-h-[170px] fit:min-h-0";
+  const className = "col-span-2 min-h-[300px] lg:col-span-4 lg:row-span-2";
 
   if (points.length < 2) {
     return (

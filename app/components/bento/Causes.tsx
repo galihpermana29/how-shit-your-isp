@@ -18,7 +18,7 @@ export function Causes({ causes }: { causes: Record<string, number> }) {
       label={t("causes.label")}
       info={t("causes.info")}
       hint={total > 0 ? f.duration(total) : undefined}
-      className="col-span-2 min-h-[150px] fit:min-h-0"
+      className="col-span-2 min-h-[150px]"
     >
       {total === 0 ? (
         <div className="flex flex-1 items-center justify-center text-xs text-[var(--color-faint)]">

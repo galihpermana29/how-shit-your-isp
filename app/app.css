@@ -1,9 +1,5 @@
 @import "tailwindcss";
 
-/* Lock the board to a single screen only where it actually fits. On shorter
-   laptop screens, forcing it produced cards whose content was silently clipped;
-   there the page scrolls instead and every card keeps its natural height. */
-@custom-variant fit (@media (min-width: 64rem) and (min-height: 45rem));
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",

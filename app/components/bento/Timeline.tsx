@@ -101,7 +101,7 @@ export function Timeline({
             ? t("today.slowOnly", { d: f.duration(totalDegraded) })
             : t("today.clean")
       }
-      className="col-span-2 min-h-[120px] fit:min-h-0"
+      className="col-span-2 min-h-[130px]"
     >
       <div className="flex min-h-0 flex-1 items-center">
         <div

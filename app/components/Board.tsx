@@ -92,7 +92,9 @@ export function Board({
 
   return (
     <TooltipLayer>
-      <main className="flex min-h-[100dvh] flex-col gap-3 p-4 fit:h-[100dvh] fit:overflow-hidden">
+      {/* The one-screen lock is gone by request: the two big charts deserve
+        their height more than the board deserves to avoid a scroll. */}
+    <main className="flex min-h-[100dvh] flex-col gap-3 p-4">
         <StatusBar
           status={data.status}
           streakMs={data.streakMs}
@@ -102,12 +104,12 @@ export function Board({
           firmware={device.firmware}
         />
 
-        <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:auto-rows-[minmax(150px,auto)] fit:grid-rows-[0.95fr_1.15fr_1.15fr_1fr]">
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:auto-rows-[minmax(150px,auto)]">
           {/* Duration leads, not rupiah. The money turned out to be a few thousand
             a month - honest, but too small to carry a headline that should make
             you care about five hours without internet. */}
           <Stat
-            className="col-span-2 min-h-[130px] fit:min-h-0"
+            className="col-span-2 min-h-[130px]"
             tone="hero"
             label={t("hero.label")}
             info={t("hero.info")}
@@ -141,7 +143,7 @@ export function Board({
           />
 
           <Stat
-            className="min-h-[120px] fit:min-h-0"
+            className="min-h-[120px]"
             label={t("outages.label")}
             info={t("outages.info")}
             value={month.incidentCount}
@@ -153,7 +155,7 @@ export function Board({
           />
 
           <Stat
-            className="min-h-[120px] fit:min-h-0"
+            className="min-h-[120px]"
             label={t("work.label")}
             info={t("work.info", workWindow)}
             value={f.duration(month.workDownMs)}
@@ -161,7 +163,7 @@ export function Board({
           />
 
           <Stat
-            className="min-h-[120px] fit:min-h-0"
+            className="min-h-[120px]"
             label={t("slow.label")}
             info={t("slow.info")}
             value={f.duration(month.degradedMs)}
@@ -169,7 +171,7 @@ export function Board({
           />
 
           <Stat
-            className="min-h-[120px] fit:min-h-0"
+            className="min-h-[120px]"
             label={t("uptime.label")}
             info={t("uptime.info")}
             value={f.percent(month.uptimePct)}
@@ -203,17 +205,22 @@ export function Board({
             quotaGbPerMonth={settings.quotaGbPerMonth}
           />
 
-          <Quality points={data.quality} baselineRtt={device.baselineRtt} />
 
-          <Timeline
+        <Causes causes={data.causes} />
+
+        <Quality points={data.quality} baselineRtt={device.baselineRtt} />
+
+        <Timeline
             originMs={data.timeline.originMs}
             bucketMs={data.timeline.bucketMs}
             buckets={data.timeline.buckets}
             now={data.now}
           />
 
-          <Causes causes={data.causes} />
 
+  
+  
+  
           <IncidentList
             incidents={data.recent}
             now={data.now}

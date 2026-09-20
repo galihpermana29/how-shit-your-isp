@@ -47,7 +47,7 @@ export function Costs({
       label={t("costs.label")}
       info={t("costs.info")}
       hint={t("costs.hint")}
-      className="col-span-2 min-h-[190px] fit:min-h-0"
+      className="col-span-2 min-h-[190px]"
     >
       <div className="flex min-h-0 flex-1 flex-col justify-center gap-2">
         {rows.map((row) => (
