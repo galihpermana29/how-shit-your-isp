@@ -203,7 +203,7 @@ export function Board({
             quotaGbPerMonth={settings.quotaGbPerMonth}
           />
 
-          <Causes causes={data.causes} />
+          <Quality points={data.quality} baselineRtt={device.baselineRtt} />
 
           <Timeline
             originMs={data.timeline.originMs}
@@ -212,7 +212,7 @@ export function Board({
             now={data.now}
           />
 
-          <Quality points={data.quality} baselineRtt={device.baselineRtt} />
+          <Causes causes={data.causes} />
 
           <IncidentList
             incidents={data.recent}
