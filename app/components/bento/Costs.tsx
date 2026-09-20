@@ -49,11 +49,11 @@ export function Costs({
       hint={t("costs.hint")}
       className="col-span-2 min-h-[190px] fit:min-h-0"
     >
-      <div className="flex min-h-0 flex-1 flex-col justify-center gap-3">
+      <div className="flex min-h-0 flex-1 flex-col justify-center gap-2">
         {rows.map((row) => (
           <div key={row.title} className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
-              <span className="h-7 w-[3px] shrink-0 rounded-full" style={{ background: row.color }} />
+              <span className="h-6 w-[3px] shrink-0 rounded-full" style={{ background: row.color }} />
               <div className="min-w-0">
                 <div className="truncate text-[13px] font-medium">{row.title}</div>
                 <div className="truncate text-[11px] text-[var(--color-faint)]">{row.note}</div>

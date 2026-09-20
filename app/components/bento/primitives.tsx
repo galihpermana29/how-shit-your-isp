@@ -77,7 +77,7 @@ export function Card({
           <span className="truncate text-[11px] text-[var(--color-faint)]">{hint}</span>
         ) : null}
       </header>
-      <div className="mt-2 flex min-h-0 flex-1 flex-col">{children}</div>
+      <div className="mt-1.5 flex min-h-0 flex-1 flex-col">{children}</div>
     </section>
   );
 }
@@ -104,8 +104,8 @@ export function Stat({
         <div
           className={`tnum font-semibold leading-none tracking-tight ${
             tone === "hero"
-              ? "text-[clamp(2rem,3.6vw,3.2rem)]"
-              : "text-[clamp(1.35rem,1.9vw,1.9rem)]"
+              ? "text-[clamp(1.8rem,3.2vw,2.9rem)]"
+              : "text-[clamp(1.25rem,1.8vw,1.8rem)]"
           }`}
         >
           {value}

@@ -112,22 +112,32 @@ export function mockBoardData(now: number): BoardData {
   const heatmapStart = todayStart - 34 * DAY_MS;
   const dayKeys = Array.from({ length: 35 }, (_, i) => wibDayKey(heatmapStart + i * DAY_MS));
   const dayIndex = new Map(dayKeys.map((k, i) => [k, i]));
-  const cells = dayKeys.map(() => new Array<number>(24).fill(0));
+  const cells = dayKeys.map(() =>
+    Array.from({ length: 24 }, () => [0, 0, 0] as [number, number, number]),
+  );
   const hourRisk = new Array<number>(24).fill(0);
   const riskStart = todayStart - 29 * DAY_MS;
 
+  // Pratinjau harus memperlihatkan keempat keadaan, termasuk "belum terukur":
+  // dua setengah hari pertama dianggap sebelum alatnya dipasang.
+  const measuredFrom = heatmapStart + 2.5 * DAY_MS;
+  distributeByHour(heatmapStart, measuredFrom, (dayKey, hour, ms) => {
+    const index = dayIndex.get(dayKey);
+    if (index !== undefined) cells[index][hour][2] += ms;
+  });
+
   for (const incident of incidents) {
-    if (incident.kind === "gangguan") continue;
+    const slot = incident.kind === "gangguan" ? 1 : incident.kind === "kontak" ? 2 : 0;
     distributeByHour(incident.start, incident.end ?? now, (dayKey, hour, ms) => {
       const index = dayIndex.get(dayKey);
-      if (index !== undefined) cells[index][hour] += ms;
-      if (incident.start >= riskStart) hourRisk[hour] += ms;
+      if (index !== undefined) cells[index][hour][slot] += ms;
+      if (slot === 0 && incident.start >= riskStart) hourRisk[hour] += ms;
     });
   }
 
   // --- strip hari ini ---
   const bucketMs = 15 * 60 * 1000;
-  const buckets = Array.from({ length: 96 }, () => ({ down: 0, degraded: 0 }));
+  const buckets = Array.from({ length: 96 }, () => ({ down: 0, degraded: 0, unmeasured: 0 }));
   for (const incident of incidents) {
     const start = Math.max(incident.start, todayStart);
     const end = Math.min(incident.end ?? now, todayStart + DAY_MS);
@@ -135,6 +145,7 @@ export function mockBoardData(now: number): BoardData {
     distributeByBucket(start, end, todayStart, bucketMs, (index, ms) => {
       if (index < 0 || index >= 96) return;
       if (incident.kind === "gangguan") buckets[index].degraded += ms;
+      else if (incident.kind === "kontak") buckets[index].unmeasured += ms;
       else buckets[index].down += ms;
     });
   }

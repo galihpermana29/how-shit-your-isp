@@ -7,12 +7,17 @@ import { Costs } from "./bento/Costs";
 import { Causes } from "./bento/Causes";
 import { IncidentList, type IncidentRow } from "./bento/IncidentList";
 import { useI18n } from "../lib/i18n";
+import { TooltipLayer } from "./Tooltip";
 
 export type BoardData = {
   now: number;
   status: string;
   streakMs: number | null;
-  settings: { quotaGbPerMonth: number; workStartHour: number; workEndHour: number };
+  settings: {
+    quotaGbPerMonth: number;
+    workStartHour: number;
+    workEndHour: number;
+  };
   device: {
     online: boolean;
     silentMs: number | null;
@@ -35,10 +40,20 @@ export type BoardData = {
     longestMs: number;
     uptimePct: number;
   };
-  timeline: { originMs: number; bucketMs: number; buckets: Array<{ down: number; degraded: number }> };
-  heatmap: { dayKeys: string[]; cells: number[][]; hourMs: number };
+  timeline: {
+    originMs: number;
+    bucketMs: number;
+    buckets: Array<{ down: number; degraded: number; unmeasured: number }>;
+  };
+  heatmap: { dayKeys: string[]; cells: Array<Array<[number, number, number]>>; hourMs: number };
   hourRisk: number[];
-  quality: Array<{ t: number; rtt: number | null; rttMax: number | null; jitter: number | null; loss: number }>;
+  quality: Array<{
+    t: number;
+    rtt: number | null;
+    rttMax: number | null;
+    jitter: number | null;
+    loss: number;
+  }>;
   causes: Record<string, number>;
   recent: IncidentRow[];
 };
@@ -68,130 +83,145 @@ export function Board({
   const { month, device, settings } = data;
 
   const deltaMs = month.downMs - month.prevDownMs;
-  const lostRupiah = month.quotaRupiah + month.ispWastedRupiah + month.streamingWastedRupiah;
+  const lostRupiah =
+    month.quotaRupiah + month.ispWastedRupiah + month.streamingWastedRupiah;
   const workWindow = {
     start: f.clock(settings.workStartHour),
     end: f.clock(settings.workEndHour),
   };
 
   return (
-    <main className="flex min-h-[100dvh] flex-col gap-3 p-4 fit:h-[100dvh] fit:overflow-hidden">
-      <StatusBar
-        status={data.status}
-        streakMs={data.streakMs}
-        online={device.online}
-        silentMs={device.silentMs}
-        baselineRtt={device.baselineRtt}
-        firmware={device.firmware}
-      />
+    <TooltipLayer>
+      <main className="flex min-h-[100dvh] flex-col gap-3 p-4 fit:h-[100dvh] fit:overflow-hidden">
+        <StatusBar
+          status={data.status}
+          streakMs={data.streakMs}
+          online={device.online}
+          silentMs={device.silentMs}
+          baselineRtt={device.baselineRtt}
+          firmware={device.firmware}
+        />
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:auto-rows-[minmax(150px,auto)] fit:grid-rows-[0.95fr_1.15fr_1.15fr_1fr]">
-        {/* Duration leads, not rupiah. The money turned out to be a few thousand
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:auto-rows-[minmax(150px,auto)] fit:grid-rows-[0.95fr_1.15fr_1.15fr_1fr]">
+          {/* Duration leads, not rupiah. The money turned out to be a few thousand
             a month - honest, but too small to carry a headline that should make
             you care about five hours without internet. */}
-        <Stat
-          className="col-span-2 min-h-[130px] fit:min-h-0"
-          tone="hero"
-          label={t("hero.label")}
-          info={t("hero.info")}
-          value={f.duration(month.downMs)}
-          sub={
-            <span className="flex flex-col gap-0.5">
-              <span>
-                {t("hero.cost", { rp: f.rupiah(lostRupiah), pct: f.percent(month.quotaPctOfPlan, 1) })}
+          <Stat
+            className="col-span-2 min-h-[130px] fit:min-h-0"
+            tone="hero"
+            label={t("hero.label")}
+            info={t("hero.info")}
+            value={f.duration(month.downMs)}
+            sub={
+              <span className="flex flex-col gap-0.5">
+                <span>
+                  {t("hero.cost", {
+                    rp: f.rupiah(lostRupiah),
+                    pct: f.percent(month.quotaPctOfPlan, 1),
+                  })}
+                </span>
+                {month.prevDownMs > 0 ? (
+                  <span
+                    style={{
+                      color:
+                        deltaMs > 0 ? "var(--color-down)" : "var(--color-ok)",
+                    }}
+                  >
+                    {deltaMs > 0
+                      ? `▲ ${t("hero.more", { d: f.duration(deltaMs) })}`
+                      : `▼ ${t("hero.less", { d: f.duration(-deltaMs) })}`}
+                  </span>
+                ) : (
+                  <span className="text-[var(--color-faint)]">
+                    {t("hero.first")}
+                  </span>
+                )}
               </span>
-              {month.prevDownMs > 0 ? (
-                <span style={{ color: deltaMs > 0 ? "var(--color-down)" : "var(--color-ok)" }}>
-                  {deltaMs > 0
-                    ? `▲ ${t("hero.more", { d: f.duration(deltaMs) })}`
-                    : `▼ ${t("hero.less", { d: f.duration(-deltaMs) })}`}
+            }
+          />
+
+          <Stat
+            className="min-h-[120px] fit:min-h-0"
+            label={t("outages.label")}
+            info={t("outages.info")}
+            value={month.incidentCount}
+            sub={
+              month.longestMs > 0
+                ? t("outages.longest", { d: f.duration(month.longestMs) })
+                : t("outages.none")
+            }
+          />
+
+          <Stat
+            className="min-h-[120px] fit:min-h-0"
+            label={t("work.label")}
+            info={t("work.info", workWindow)}
+            value={f.duration(month.workDownMs)}
+            sub={t("work.sub", workWindow)}
+          />
+
+          <Stat
+            className="min-h-[120px] fit:min-h-0"
+            label={t("slow.label")}
+            info={t("slow.info")}
+            value={f.duration(month.degradedMs)}
+            sub={t("slow.sub")}
+          />
+
+          <Stat
+            className="min-h-[120px] fit:min-h-0"
+            label={t("uptime.label")}
+            info={t("uptime.info")}
+            value={f.percent(month.uptimePct)}
+            sub={
+              <span className="flex flex-col gap-0.5">
+                <span>
+                  {t("uptime.isp", { d: f.duration(month.ispFaultMs) })}
                 </span>
-              ) : (
-                <span className="text-[var(--color-faint)]">{t("hero.first")}</span>
-              )}
-            </span>
-          }
-        />
+                {month.unknownMs > 0 && (
+                  <span className="text-[var(--color-faint)]">
+                    {t("uptime.unmeasured", { d: f.duration(month.unknownMs) })}
+                  </span>
+                )}
+              </span>
+            }
+          />
 
-        <Stat
-          className="min-h-[120px] fit:min-h-0"
-          label={t("outages.label")}
-          info={t("outages.info")}
-          value={month.incidentCount}
-          sub={
-            month.longestMs > 0
-              ? t("outages.longest", { d: f.duration(month.longestMs) })
-              : t("outages.none")
-          }
-        />
+          <Heatmap
+            dayKeys={data.heatmap.dayKeys}
+            cells={data.heatmap.cells}
+            hourMs={data.heatmap.hourMs}
+            hourRisk={data.hourRisk}
+          />
 
-        <Stat
-          className="min-h-[120px] fit:min-h-0"
-          label={t("work.label")}
-          info={t("work.info", workWindow)}
-          value={f.duration(month.workDownMs)}
-          sub={t("work.sub", workWindow)}
-        />
+          <Costs
+            quotaMb={month.quotaMb}
+            quotaRupiah={month.quotaRupiah}
+            ispWasted={month.ispWastedRupiah}
+            streamingWasted={month.streamingWastedRupiah}
+            quotaPctOfPlan={month.quotaPctOfPlan}
+            quotaGbPerMonth={settings.quotaGbPerMonth}
+          />
 
-        <Stat
-          className="min-h-[120px] fit:min-h-0"
-          label={t("slow.label")}
-          info={t("slow.info")}
-          value={f.duration(month.degradedMs)}
-          sub={t("slow.sub")}
-        />
+          <Causes causes={data.causes} />
 
-        <Stat
-          className="min-h-[120px] fit:min-h-0"
-          label={t("uptime.label")}
-          info={t("uptime.info")}
-          value={f.percent(month.uptimePct)}
-          sub={
-            <span className="flex flex-col gap-0.5">
-              <span>{t("uptime.isp", { d: f.duration(month.ispFaultMs) })}</span>
-              {month.unknownMs > 0 && (
-                <span className="text-[var(--color-faint)]">
-                  {t("uptime.unmeasured", { d: f.duration(month.unknownMs) })}
-                </span>
-              )}
-            </span>
-          }
-        />
+          <Timeline
+            originMs={data.timeline.originMs}
+            bucketMs={data.timeline.bucketMs}
+            buckets={data.timeline.buckets}
+            now={data.now}
+          />
 
-        <Heatmap
-          dayKeys={data.heatmap.dayKeys}
-          cells={data.heatmap.cells}
-          hourMs={data.heatmap.hourMs}
-          hourRisk={data.hourRisk}
-        />
+          <Quality points={data.quality} baselineRtt={device.baselineRtt} />
 
-        <Costs
-          quotaMb={month.quotaMb}
-          quotaRupiah={month.quotaRupiah}
-          ispWasted={month.ispWastedRupiah}
-          streamingWasted={month.streamingWastedRupiah}
-          quotaPctOfPlan={month.quotaPctOfPlan}
-          quotaGbPerMonth={settings.quotaGbPerMonth}
-        />
-
-        <Causes causes={data.causes} />
-
-        <Timeline
-          originMs={data.timeline.originMs}
-          bucketMs={data.timeline.bucketMs}
-          buckets={data.timeline.buckets}
-          now={data.now}
-        />
-
-        <Quality points={data.quality} baselineRtt={device.baselineRtt} />
-
-        <IncidentList
-          incidents={data.recent}
-          now={data.now}
-          onToggleMeeting={onToggleMeeting}
-          onToggleBola={onToggleBola}
-        />
-      </div>
-    </main>
+          <IncidentList
+            incidents={data.recent}
+            now={data.now}
+            onToggleMeeting={onToggleMeeting}
+            onToggleBola={onToggleBola}
+          />
+        </div>
+      </main>
+    </TooltipLayer>
   );
 }

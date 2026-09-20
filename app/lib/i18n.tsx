@@ -63,14 +63,11 @@ const en = {
 
   "heatmap.label": "Outage pattern, 35 days",
   "heatmap.info":
-    "Each column is a day, each row an hour. Redder cells mean more downtime. The bars on the right add up each hour across the last 30 days: a long bar at the same hour every day points to ISP congestion, not bad luck.",
+    "Each column is a day, each row an hour, same colours as the Today strip: green fine, amber slow, red down, near-black not measured. The bars on the right add up downtime per hour across the last 30 days: a long bar at the same hour every day points to ISP congestion, not bad luck.",
+  "heatmap.notMeasured": "Not measured",
   "heatmap.hint": "{d} total · worst hour {h}",
   "heatmap.clean": "no outages",
-  "heatmap.fewer": "less",
-  "heatmap.more": "more",
   "heatmap.perHour": "by hour, 30 days",
-  "heatmap.cellDown": "{day} {hour} - down {d}",
-  "heatmap.cellOk": "{day} {hour} - normal",
 
   "costs.label": "Where the money went",
   "costs.info":
@@ -91,10 +88,10 @@ const en = {
   "today.info": "Today in 15-minute blocks. Red is down, amber is slow, green is normal.",
   "today.down": "down {d}",
   "today.clean": "no issues so far",
-  "today.blockDown": "{t} - down {d}",
-  "today.blockSlow": "{t} - slow {d}",
-  "today.blockFuture": "{t} - not yet",
-  "today.blockOk": "{t} - normal",
+  "today.slowOnly": "slow for {d}",
+  "today.state": "status",
+  "today.notYet": "not yet",
+  "today.aria": "Today in 15-minute blocks: {down} down, {slow} slow.",
 
   "quality.label": "Connection quality, 24h",
   "quality.info":
@@ -103,7 +100,9 @@ const en = {
   "quality.ping": "ping",
   "quality.jitter": "jitter",
   "quality.normal": "normal {v}",
-  "quality.now": "{p} · jitter {j}",
+  "quality.peak": "peak",
+  "quality.loss": "packet loss",
+  "quality.summary": "median {m} · p95 {p} · loss {l}",
 
   "incidents.label": "Recent outages",
   "incidents.info":
@@ -175,14 +174,11 @@ const id: Record<MessageKey, string> = {
 
   "heatmap.label": "Pola outage 35 hari",
   "heatmap.info":
-    "Tiap kolom satu hari, tiap baris satu jam. Makin merah, makin lama mati. Batang di kanan menjumlahkan tiap jam selama 30 hari: batang panjang di jam yang sama tiap hari menandakan kongesti ISP, bukan nasib sial.",
+    "Tiap kolom satu hari, tiap baris satu jam, warnanya sama dengan strip Hari ini: hijau sehat, kuning lambat, merah mati, hampir hitam tidak terukur. Batang di kanan menjumlahkan waktu mati per jam selama 30 hari: batang panjang di jam yang sama tiap hari menandakan kongesti ISP, bukan nasib sial.",
+  "heatmap.notMeasured": "Tak terukur",
   "heatmap.hint": "{d} total · jam terparah {h}",
   "heatmap.clean": "bersih",
-  "heatmap.fewer": "sedikit",
-  "heatmap.more": "banyak",
   "heatmap.perHour": "per jam, 30 hari",
-  "heatmap.cellDown": "{day} {hour} - mati {d}",
-  "heatmap.cellOk": "{day} {hour} - normal",
 
   "costs.label": "Ke mana uangnya",
   "costs.info":
@@ -203,10 +199,10 @@ const id: Record<MessageKey, string> = {
   "today.info": "Hari ini dalam blok 15 menit. Merah putus, kuning lambat, hijau normal.",
   "today.down": "mati {d}",
   "today.clean": "belum ada gangguan",
-  "today.blockDown": "{t} - putus {d}",
-  "today.blockSlow": "{t} - lambat {d}",
-  "today.blockFuture": "{t} - belum terjadi",
-  "today.blockOk": "{t} - normal",
+  "today.slowOnly": "lambat {d}",
+  "today.state": "status",
+  "today.notYet": "belum terjadi",
+  "today.aria": "Hari ini dalam blok 15 menit: {down} mati, {slow} lambat.",
 
   "quality.label": "Kualitas koneksi 24 jam",
   "quality.info":
@@ -215,7 +211,9 @@ const id: Record<MessageKey, string> = {
   "quality.ping": "ping",
   "quality.jitter": "jitter",
   "quality.normal": "normal {v}",
-  "quality.now": "{p} · jitter {j}",
+  "quality.peak": "peak",
+  "quality.loss": "packet loss",
+  "quality.summary": "median {m} · p95 {p} · loss {l}",
 
   "incidents.label": "Outage terakhir",
   "incidents.info":

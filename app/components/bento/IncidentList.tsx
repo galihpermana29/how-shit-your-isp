@@ -29,7 +29,7 @@ function Tag({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className="rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-colors"
+      className="rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-[color,background,transform] duration-100 active:scale-90 motion-reduce:active:scale-100"
       style={{
         background: active ? `color-mix(in oklab, ${color} 30%, transparent)` : "transparent",
         color: active ? color : "var(--color-faint)",
@@ -81,7 +81,7 @@ export function IncidentList({
             return (
               <li
                 key={incident._id}
-                className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5"
+                className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-[filter] duration-100 hover:brightness-125"
                 style={{ background: "var(--color-surface-2)" }}
               >
                 <span className="flex min-w-0 items-center gap-2">
