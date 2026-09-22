@@ -47,15 +47,25 @@ function MissingConvex() {
 }
 
 function LiveBoard() {
-  const data = useQuery(api.dashboard.overview, {});
+  const overview = useQuery(api.dashboard.overview, {});
+  const live = useQuery(api.dashboard.liveness, {});
   const toggleMeeting = useMutation(api.incidents.toggleMeeting);
   const toggleBola = useMutation(api.incidents.toggleBola);
 
-  if (!data) return <LoadingBoard />;
+  if (!overview || !live) return <LoadingBoard />;
+
+  // Dua langganan sengaja dipisah: liveness berubah tiap menit tapi mungil,
+  // overview besar tapi hanya berubah saat ada ringkasan atau insiden baru.
+  // Digabung lagi di sini menjadi bentuk yang papan kenal.
+  const data = {
+    ...overview,
+    device: live,
+    status: overview.openKind ?? (live.online ? "sehat" : "kontak"),
+  };
 
   return (
     <Board
-      data={data}
+      data={data as never}
       onToggleMeeting={(id, meeting) => {
         // Papan presentasional memegang id sebagai string biasa supaya bisa
         // dipakai rute /preview tanpa Convex; mereknya dipasang lagi di sini.

@@ -29,11 +29,6 @@ export const overview = query({
     const now = Date.now();
     const settings = await readSettings(ctx);
 
-    const device = await ctx.db
-      .query("deviceState")
-      .withIndex("by_singleton", (q) => q.eq("singleton", "device"))
-      .unique();
-
     const monthStart = wibStartOfMonth(now);
     const monthEnd = wibStartOfNextMonth(now);
     const prevMonthStart = wibStartOfMonth(monthStart - 1);
@@ -138,9 +133,11 @@ export const overview = query({
     }
 
     // --- Status sekarang ---------------------------------------------------
+    // Overview sengaja TIDAK membaca deviceState: dokumen itu di-patch setiap
+    // menit oleh laporan alat, dan setiap patch memaksa semua pelanggan query
+    // ini menghitung ulang ~300 dokumen. Kabar hidup-matinya alat pindah ke
+    // query `liveness` di bawah, yang cuma membaca dua dokumen kecil.
     const openIncident = history.find((d) => d.end === null) ?? null;
-    const silentMs = device ? now - device.lastSeen : null;
-    const online = silentMs !== null && silentMs < settings.contactTimeoutMs;
 
     const lastClosed = history
       .filter((d) => d.end !== null && d.kind !== "gangguan")
@@ -162,15 +159,7 @@ export const overview = query({
     return {
       now,
       settings,
-      device: {
-        online,
-        silentMs,
-        lastSeen: device?.lastSeen ?? null,
-        baselineRtt: device?.baselineRtt ?? null,
-        firmware: device?.firmware ?? null,
-        bootCount: device?.bootCount ?? 0,
-      },
-      status: openIncident ? openIncident.kind : online ? "sehat" : "kontak",
+      openKind: openIncident ? openIncident.kind : null,
       streakMs,
       month: {
         ...cost,
@@ -185,6 +174,33 @@ export const overview = query({
       quality,
       causes,
       recent,
+    };
+  },
+});
+
+/**
+ * Kabar hidup alat, sebagai query terpisah dan sekecil mungkin.
+ *
+ * Dokumen deviceState berubah tiap menit, jadi pelanggannya memang akan
+ * menghitung ulang tiap menit - tapi hitungannya dua dokumen, bukan tiga ratus.
+ */
+export const liveness = query({
+  args: {},
+  handler: async (ctx) => {
+    const settings = await readSettings(ctx);
+    const device = await ctx.db
+      .query("deviceState")
+      .withIndex("by_singleton", (q) => q.eq("singleton", "device"))
+      .unique();
+
+    const now = Date.now();
+    const silentMs = device ? now - device.lastSeen : null;
+    return {
+      online: silentMs !== null && silentMs < settings.contactTimeoutMs,
+      silentMs,
+      lastSeen: device?.lastSeen ?? null,
+      baselineRtt: device?.baselineRtt ?? null,
+      firmware: device?.firmware ?? null,
     };
   },
 });

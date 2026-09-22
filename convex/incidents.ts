@@ -103,24 +103,29 @@ export const refreshBaseline = internalMutation({
     const device = await deviceDoc(ctx);
     if (!device) return { baseline: null };
 
+    // Dihitung dari ringkasan lima menit, bukan sampel mentah. Tujuh hari
+    // sampel itu ~40 ribu dokumen, dan membacanya tiap jam sendirian sudah
+    // menghabiskan jatah bandwidth database gratisan; ringkasannya membawa
+    // angka yang sama dalam ~2 ribu dokumen.
     const since = Date.now() - 7 * DAY_MS;
-    const samples = await ctx.db
-      .query("samples")
+    const rollups = await ctx.db
+      .query("rollups")
       .withIndex("by_t", (q) => q.gte("t", since))
       .collect();
 
-    // Hanya sampel sehat yang boleh membentuk baseline. Memasukkan RTT saat
+    // Hanya ember sehat yang boleh membentuk baseline. Memasukkan RTT saat
     // koneksi sedang kacau menaikkan garis normalnya, dan gangguan berikutnya
     // jadi tidak terdeteksi - alat yang perlahan buta terhadap masalahnya sendiri.
-    const healthy = samples
-      .filter((s) => s.wan && s.loss === 0 && s.rtt !== null)
-      .map((s) => s.rtt as number);
+    const healthy = rollups
+      .filter((r) => r.worst === "sehat" && r.rttAvg !== null)
+      .map((r) => r.rttAvg as number);
 
     // Segelintir sampel dari jam-jam kacau bisa menghasilkan "normal" ratusan
     // milidetik, dan ambang gangguan (3x normal) praktis mati sampai hitungan
     // berikutnya. Baseline baru hanya sah dari minimal 30 menit data sehat;
     // kalau kurang, angka lama dipertahankan.
-    if (healthy.length < 120) {
+    // 12 ember = satu jam data sehat, padanan penjaga 30 menit yang lama.
+    if (healthy.length < 12) {
       return { baseline: device.baselineRtt, from: healthy.length, kept: true };
     }
     const baseline = median(healthy);
