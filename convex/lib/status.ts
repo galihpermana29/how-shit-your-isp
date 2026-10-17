@@ -57,7 +57,12 @@ export function classify(
     return { status: "putus", cause: "wan" };
   }
 
-  if (!sample.dnsIsp) return { status: "gangguan", cause: "dns" };
+  // Resolver ISP yang gagal sendirian - sementara DNS publik dan jalur keluar
+  // sehat - tidak dihitung. DHCP membagikan lebih dari satu resolver, dan
+  // perangkat diam-diam pindah ke cadangannya; yang mati cuma yang utama.
+  // Menghitungnya membuat setiap sampel tidak sehat selama berhari-hari, dan
+  // satu kedipan putus lalu tersambung jadi satu "outage" sepanjang minggu.
+  // Kalau DNS publik juga gagal, cabang !wan di atas yang menangkapnya.
 
   const lossBad = sample.loss >= t.lossDegradedPct;
   const jitterBad = sample.jitter !== null && sample.jitter > t.jitterDegradedMs;

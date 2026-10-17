@@ -32,7 +32,7 @@ The ESP32 only reports numbers, and the server decides what counts as an inciden
 The definition of "down" will change: twenty seconds every evening might turn out to be a modem re-sync, or 30% packet loss might deserve to count as degraded.
 If the device made the call, history would be frozen at whatever threshold was guessed on day one.
 Because raw samples are stored, changing a threshold corrects **the entire history**.
-Run `incidents:recomputeAll` after changing one.
+Run `npx convex run --prod incidents:recomputeFrom '{}'` after changing one.
 
 ## What is measured
 
