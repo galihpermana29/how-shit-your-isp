@@ -2,12 +2,12 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { readSettings, ensureSettings } from "./settings";
-import { buildIncidents, inheritFlags, SAMPLE_INTERVAL_MS, type FlagSource } from "./lib/incidents";
+import { buildIncidents, inheritFlags, planRebuild, SAMPLE_INTERVAL_MS, type FlagSource } from "./lib/incidents";
 import { median } from "./lib/status";
 import { DAY_MS } from "./lib/time";
 
 /** Batas kerja satu putaran, supaya tumpukan besar dicicil lintas pemanggilan. */
-const MAX_SAMPLES_PER_RUN = 6000;
+const MAX_SAMPLES_PER_RUN = 2000;
 
 async function deviceDoc(ctx: { db: any }): Promise<Doc<"deviceState"> | null> {
   return await ctx.db
@@ -31,62 +31,58 @@ export const derive = internalMutation({
     const device = await deviceDoc(ctx);
     if (!device) return { built: 0, reason: "belum ada perangkat" };
 
-    let rebuildFrom = device.derivedUpTo;
-    const flagged: FlagSource[] = [];
-    const remember = (incident: FlagSource) => {
-      if (incident.meeting || incident.bola) flagged.push(incident);
-    };
+    const cursor = device.derivedUpTo;
 
-    // Insiden yang melintasi kursor harus dibangun ulang dari awalnya sendiri,
-    // bukan dari kursor - kalau tidak, ia terpotong jadi dua.
-    const straddling = await ctx.db
+    // The incident crossing the cursor is kept and extended, not deleted and
+    // rebuilt from its start - see planRebuild for why that used to stall.
+    const before = await ctx.db
       .query("incidents")
       .withIndex("by_start")
       .order("desc")
-      .filter((q) => q.lt(q.field("start"), rebuildFrom))
+      .filter((q) => q.lt(q.field("start"), cursor))
       .take(5);
-    for (const incident of straddling) {
-      const end = incident.end ?? Number.POSITIVE_INFINITY;
-      if (end > rebuildFrom) {
-        rebuildFrom = Math.min(rebuildFrom, incident.start);
-        remember(incident);
-        await ctx.db.delete(incident._id);
-      }
-    }
+    const straddling = before.find((i) => (i.end ?? Number.POSITIVE_INFINITY) > cursor) ?? null;
 
-    const stale = await ctx.db
-      .query("incidents")
-      .withIndex("by_start", (q) => q.gte("start", rebuildFrom))
-      .collect();
-    for (const incident of stale) {
-      remember(incident);
-      await ctx.db.delete(incident._id);
-    }
-
-    // Satu sampel sebelum kursor ikut ditarik supaya lubang data tepat di batas
-    // jendela tetap terdeteksi.
+    // A few samples before the cursor ride along, so a data gap right at the
+    // boundary is still detected and a run in progress is recognised.
     const samples = await ctx.db
       .query("samples")
-      .withIndex("by_t", (q) => q.gte("t", rebuildFrom - SAMPLE_INTERVAL_MS * 4))
+      .withIndex("by_t", (q) => q.gte("t", cursor - SAMPLE_INTERVAL_MS * 4))
       .order("asc")
       .take(MAX_SAMPLES_PER_RUN);
 
     if (samples.length === 0) return { built: 0, reason: "tidak ada sampel baru" };
+    const lastT = samples[samples.length - 1].t;
+
+    // Only incidents inside the window this run rebuilds are replaced. Deleting
+    // everything after the cursor meant a history rebuild wiped every later
+    // incident in its first run, along with the meeting and football tags on
+    // them - the tags could only be inherited by incidents rebuilt in that same
+    // run. Incidents further ahead now wait until the cursor reaches them.
+    const flagged: FlagSource[] = [];
+    const stale = await ctx.db
+      .query("incidents")
+      .withIndex("by_start", (q) => q.gte("start", cursor).lte("start", lastT + SAMPLE_INTERVAL_MS))
+      .collect();
+    for (const incident of stale) {
+      if (incident.meeting || incident.bola) flagged.push(incident);
+      await ctx.db.delete(incident._id);
+    }
 
     const now = Date.now();
     const drafts = buildIncidents(samples, device.baselineRtt, settings, now);
+    const plan = planRebuild(straddling, drafts, cursor, now);
 
-    let built = 0;
-    for (const draft of drafts) {
-      if (draft.start < rebuildFrom) continue;
+    if (straddling && plan.extend) {
+      await ctx.db.patch(straddling._id, plan.extend);
+    }
+    for (const draft of plan.insert) {
       await ctx.db.insert("incidents", { ...draft, ...inheritFlags(draft, flagged, now) });
-      built += 1;
     }
 
-    const lastT = samples[samples.length - 1].t;
     await ctx.db.patch(device._id, { derivedUpTo: lastT });
 
-    return { built, upTo: lastT };
+    return { built: plan.insert.length, extended: plan.extend !== null, upTo: lastT };
   },
 });
 
@@ -134,14 +130,22 @@ export const refreshBaseline = internalMutation({
   },
 });
 
-/** Paksa seluruh riwayat dibaca ulang - dipakai setelah ambang batas diubah. */
-export const recomputeAll = mutation({
-  args: {},
-  handler: async (ctx) => {
+/**
+ * Rebuild incidents from a point in time - after a threshold or a
+ * classification rule changes. Defaults to the whole history. The cron does
+ * the work in capped runs; the board shows "incidents are X behind" meanwhile.
+ *
+ * Internal: run it from the CLI, never from the public board.
+ *
+ *   npx convex run --prod incidents:recomputeFrom '{}'
+ */
+export const recomputeFrom = internalMutation({
+  args: { from: v.optional(v.number()) },
+  handler: async (ctx, { from }) => {
     const device = await deviceDoc(ctx);
     if (!device) return { ok: false };
-    await ctx.db.patch(device._id, { derivedUpTo: 0 });
-    return { ok: true, note: "insiden akan dibangun ulang bertahap oleh cron" };
+    await ctx.db.patch(device._id, { derivedUpTo: from ?? 0 });
+    return { ok: true, from: from ?? 0 };
   },
 });
 

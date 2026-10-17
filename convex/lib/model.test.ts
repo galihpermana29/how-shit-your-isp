@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { splitByBand, wibParts, wibDayKey, isWorkHour, monthBandTotals, HOUR_MS } from "./time";
 import { quotaMb, monthlyCost, DEFAULT_SETTINGS } from "./cost";
 import { classify } from "./status";
-import { buildIncidents, inheritFlags, SAMPLE_INTERVAL_MS } from "./incidents";
+import { buildIncidents, inheritFlags, planRebuild, SAMPLE_INTERVAL_MS, type IncidentDraft } from "./incidents";
 
 const S = DEFAULT_SETTINGS;
 
@@ -132,6 +132,26 @@ test("classify menyalahkan lapisan terdekat yang gagal lebih dulu", () => {
 
   const sehat = { lan: true, dnsIsp: true, dnsPub: true, wan: true, rtt: 22, loss: 0, jitter: 4, rssi: -50 };
   assert.deepEqual(classify(sehat, 20, t), { status: "sehat", cause: null });
+});
+
+test("resolver ISP mati sendirian tidak dihitung, selama DNS publik dan WAN sehat", () => {
+  // Persis jaringan provider baru: resolver utama 10.10.18.1 tidak menjawab,
+  // perangkat pindah ke cadangan, internet terasa normal.
+  const resolverUtamaMati = { lan: true, dnsIsp: false, dnsPub: true, wan: true, rtt: 9, loss: 0, jitter: 2, rssi: -60 };
+  assert.deepEqual(classify(resolverUtamaMati, 9, S), { status: "sehat", cause: null });
+});
+
+test("satu kedipan putus tidak menular ke hari-hari sehat setelahnya", () => {
+  // Kedipan putus, lalu sehari penuh dengan resolver ISP mati tapi internet jalan.
+  const samples = [
+    sampleAt(0, PUTUS),
+    sampleAt(1, PUTUS),
+    ...Array.from({ length: 5760 }, (_, i) => sampleAt(2 + i, { dnsIsp: false })),
+  ];
+  const out = buildIncidents(samples, 20, S, t0 + 6000 * SAMPLE_INTERVAL_MS);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].kind, "putus");
+  assert.equal(out[0].end, t0 + 2 * SAMPLE_INTERVAL_MS);
 });
 
 test("ambang lambat relatif ke baseline rumah sendiri", () => {
@@ -332,4 +352,70 @@ test("penanda manual bertahan saat insiden dibangun ulang", () => {
   // Insiden lain yang tidak beririsan tidak ikut mewarisi.
   const jauh = { start: t0 + 500 * SAMPLE_INTERVAL_MS, end: t0 + 510 * SAMPLE_INTERVAL_MS };
   assert.deepEqual(inheritFlags(jauh, [lama], now), { meeting: false, bola: false });
+});
+
+/**
+ * Mimics the derive mutation in memory: a capped read per run, the stale
+ * incidents after the cursor deleted, the straddling one extended.
+ */
+function simulateDerive(all: ReturnType<typeof sampleAt>[], cap: number, now: number, maxRuns: number) {
+  let cursor = 0;
+  let incidents: Array<IncidentDraft & { id: number }> = [];
+  let nextId = 1;
+  let runs = 0;
+
+  while (runs < maxRuns) {
+    runs += 1;
+    const straddling =
+      incidents
+        .filter((i) => i.start < cursor && (i.end ?? Number.POSITIVE_INFINITY) > cursor)
+        .sort((a, b) => b.start - a.start)[0] ?? null;
+    incidents = incidents.filter((i) => i.start < cursor);
+
+    const batch = all.filter((x) => x.t >= cursor - SAMPLE_INTERVAL_MS * 4).slice(0, cap);
+    if (batch.length === 0) break;
+
+    const plan = planRebuild(straddling, buildIncidents(batch, 20, S, now), cursor, now);
+    if (straddling && plan.extend) Object.assign(straddling, plan.extend);
+    for (const draft of plan.insert) incidents.push({ ...draft, id: nextId++ });
+
+    const lastT = batch[batch.length - 1].t;
+    if (lastT === cursor) break;
+    cursor = lastT;
+  }
+  return { cursor, incidents, runs };
+}
+
+test("outage lebih panjang dari jendela baca tidak lagi membuat derive macet", () => {
+  // 30 jam putus, lalu 2 jam sehat. Jendela baca 2000 sampel = 8,3 jam.
+  const outage = 30 * 240;
+  const healthy = 2 * 240;
+  const all = Array.from({ length: outage + healthy }, (_, i) =>
+    sampleAt(i, i < outage ? PUTUS : {}),
+  );
+  const last = all[all.length - 1].t;
+
+  const { cursor, incidents, runs } = simulateDerive(all, 2000, last + SAMPLE_INTERVAL_MS, 50);
+
+  assert.equal(cursor, last, "kursor harus sampai sampel terakhir");
+  assert.ok(runs < 10, `butuh ${runs} putaran`);
+  const down = incidents.filter((i) => i.kind === "putus");
+  assert.equal(down.length, 1, "satu outage harus tetap satu insiden");
+  assert.equal(down[0].start, all[0].t);
+  assert.equal(down[0].end, all[outage - 1].t + SAMPLE_INTERVAL_MS);
+});
+
+test("gangguan setelah outage panjang tetap tercatat sebagai insiden sendiri", () => {
+  const outage = 30 * 240;
+  const all = [
+    ...Array.from({ length: outage }, (_, i) => sampleAt(i, PUTUS)),
+    ...Array.from({ length: 240 }, (_, i) => sampleAt(outage + i)),
+    ...Array.from({ length: 20 }, (_, i) => sampleAt(outage + 240 + i, { loss: 40 })),
+    ...Array.from({ length: 40 }, (_, i) => sampleAt(outage + 260 + i)),
+  ];
+  const last = all[all.length - 1].t;
+  const { incidents } = simulateDerive(all, 2000, last + SAMPLE_INTERVAL_MS, 50);
+
+  assert.equal(incidents.filter((i) => i.kind === "putus").length, 1);
+  assert.equal(incidents.filter((i) => i.kind === "gangguan").length, 1);
 });

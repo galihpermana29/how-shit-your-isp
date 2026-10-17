@@ -176,3 +176,68 @@ export function inheritFlags(
   }
   return { meeting, bola };
 }
+
+type Straddling = { start: number; end: number | null; kind: IncidentDraft["kind"] };
+
+export type RebuildPlan = {
+  /** New bounds for the incident that straddles the cursor, if it continues. */
+  extend: { end: number | null; kind: IncidentDraft["kind"]; durationMs: number } | null;
+  insert: IncidentDraft[];
+};
+
+const CONTINUABLE = new Set<IncidentDraft["kind"]>(["putus", "gangguan"]);
+const SEVERITY: Record<string, number> = { gangguan: 1, putus: 2 };
+
+/**
+ * Decide what a derive run writes, given the incident that straddles the cursor.
+ *
+ * The straddling incident is *extended*, never rebuilt from its start. Rebuilding
+ * from the start meant re-reading every sample since then, and derive reads a
+ * capped number of samples per run - so an outage longer than the cap (6000
+ * samples, 25 hours) pulled the cursor back to the same start on every run and
+ * the pipeline stalled for good. Extending only ever reads forward, so the cursor
+ * always advances, however long the outage lasts.
+ */
+export function planRebuild(
+  straddling: Straddling | null,
+  drafts: IncidentDraft[],
+  cursor: number,
+  now: number,
+): RebuildPlan {
+  const insert: IncidentDraft[] = [];
+  let extend: RebuildPlan["extend"] = null;
+
+  const canContinue = straddling !== null && CONTINUABLE.has(straddling.kind);
+  let reach = straddling ? (straddling.end ?? cursor + SAMPLE_INTERVAL_MS) : 0;
+  let kind = straddling?.kind ?? "putus";
+
+  for (const draft of drafts) {
+    const continues =
+      canContinue &&
+      CONTINUABLE.has(draft.kind) &&
+      draft.start <= reach + SAMPLE_INTERVAL_MS &&
+      (draft.end ?? now) >= straddling!.start;
+
+    if (continues) {
+      kind = (SEVERITY[draft.kind] ?? 0) > (SEVERITY[kind] ?? 0) ? draft.kind : kind;
+      const end = draft.end === null ? null : Math.max(draft.end, reach);
+      extend = { end, kind, durationMs: (end ?? now) - straddling!.start };
+      reach = end ?? now;
+      continue;
+    }
+
+    // Anything else that starts before the cursor was already written by the
+    // run that produced the straddling incident.
+    if (draft.start < cursor) continue;
+    insert.push(draft);
+  }
+
+  // Left open by the previous run, and the new samples do not continue it:
+  // the outage ended right at the cursor.
+  if (extend === null && straddling !== null && straddling.end === null) {
+    const end = cursor + SAMPLE_INTERVAL_MS;
+    extend = { end, kind: straddling.kind, durationMs: end - straddling.start };
+  }
+
+  return { extend, insert };
+}
