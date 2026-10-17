@@ -23,6 +23,7 @@ const en = {
   "device.silent": "monitor silent for {d}",
   "device.never": "monitor has never reported",
   "device.baseline": "normal ping {v}",
+  "device.lagging": "incidents are {d} behind",
 
   "cause.router": "Router",
   "cause.dns": "ISP DNS",
@@ -135,6 +136,7 @@ const id: Record<MessageKey, string> = {
   "device.silent": "alat diam {d}",
   "device.never": "alat belum pernah lapor",
   "device.baseline": "ping normal {v}",
+  "device.lagging": "insiden tertinggal {d}",
 
   "cause.router": "Router",
   "cause.dns": "DNS ISP",

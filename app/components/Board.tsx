@@ -23,6 +23,7 @@ export type BoardData = {
     silentMs: number | null;
     baselineRtt: number | null;
     firmware: string | null;
+    processingLagMs?: number;
   };
   month: {
     quotaMb: number;
@@ -45,7 +46,11 @@ export type BoardData = {
     bucketMs: number;
     buckets: Array<{ down: number; degraded: number; unmeasured: number }>;
   };
-  heatmap: { dayKeys: string[]; cells: Array<Array<[number, number, number]>>; hourMs: number };
+  heatmap: {
+    dayKeys: string[];
+    cells: Array<Array<[number, number, number]>>;
+    hourMs: number;
+  };
   hourRisk: number[];
   quality: Array<{
     t: number;
@@ -94,7 +99,7 @@ export function Board({
     <TooltipLayer>
       {/* The one-screen lock is gone by request: the two big charts deserve
         their height more than the board deserves to avoid a scroll. */}
-    <main className="flex min-h-[100dvh] flex-col gap-3 p-4">
+      <main className="flex min-h-[100dvh] flex-col gap-3 p-4">
         <StatusBar
           status={data.status}
           streakMs={data.streakMs}
@@ -102,6 +107,7 @@ export function Board({
           silentMs={device.silentMs}
           baselineRtt={device.baselineRtt}
           firmware={device.firmware}
+          processingLagMs={device.processingLagMs ?? 0}
         />
 
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 lg:grid-cols-6 lg:auto-rows-[minmax(150px,auto)]">
@@ -205,22 +211,17 @@ export function Board({
             quotaGbPerMonth={settings.quotaGbPerMonth}
           />
 
+          <Causes causes={data.causes} />
 
-        <Causes causes={data.causes} />
+          <Quality points={data.quality} baselineRtt={device.baselineRtt} />
 
-        <Quality points={data.quality} baselineRtt={device.baselineRtt} />
-
-        <Timeline
+          <Timeline
             originMs={data.timeline.originMs}
             bucketMs={data.timeline.bucketMs}
             buckets={data.timeline.buckets}
             now={data.now}
           />
 
-
-  
-  
-  
           <IncidentList
             incidents={data.recent}
             now={data.now}

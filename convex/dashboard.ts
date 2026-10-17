@@ -201,6 +201,10 @@ export const liveness = query({
       lastSeen: device?.lastSeen ?? null,
       baselineRtt: device?.baselineRtt ?? null,
       firmware: device?.firmware ?? null,
+      // How far incident derivation trails the newest sample. It sat at four
+      // days once without a single visible sign - the board looked healthy
+      // because nothing new was being turned into incidents.
+      processingLagMs: device ? Math.max(0, device.lastSampleAt - device.derivedUpTo) : 0,
     };
   },
 });

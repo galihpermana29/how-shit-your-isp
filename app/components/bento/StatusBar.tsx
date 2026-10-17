@@ -15,6 +15,7 @@ export function StatusBar({
   silentMs,
   baselineRtt,
   firmware,
+  processingLagMs,
 }: {
   status: string;
   streakMs: number | null;
@@ -22,6 +23,7 @@ export function StatusBar({
   silentMs: number | null;
   baselineRtt: number | null;
   firmware: string | null;
+  processingLagMs: number;
 }) {
   const { t, f, toggle } = useI18n();
   const color = STATUS_COLOR[status] ?? "var(--color-device)";
@@ -49,6 +51,11 @@ export function StatusBar({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[var(--color-faint)]">
+        {processingLagMs > 15 * 60_000 && (
+          <span className="font-medium" style={{ color: "var(--color-warn)" }}>
+            {t("device.lagging", { d: f.duration(processingLagMs) })}
+          </span>
+        )}
         {baselineRtt !== null && <span>{t("device.baseline", { v: f.ms(baselineRtt) })}</span>}
         {firmware && <span>fw {firmware}</span>}
         <span className="flex items-center gap-1.5">
